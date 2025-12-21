@@ -7,10 +7,10 @@ public class AnswerPaper{
 
     private final String id;
     private final String subject;
-    private final List<String> questions;
+    private final HashMap<String, String> questions;
     private final HashMap<String, String> answers; // map questions to answers
 
-    public AnswerPaper(String id, String subject, List<String> questions, HashMap<String, String> answers) {
+    public AnswerPaper(String id, String subject, HashMap<String, String> questions, HashMap<String, String> answers) {
         this.id = id;
         this.subject = subject;
         this.questions = questions;
@@ -29,7 +29,7 @@ public class AnswerPaper{
         return answers;
     }
 
-    public List<String> getQuestions() {
+    public HashMap<String, String> getQuestions() {
         return questions;
     }
 }
