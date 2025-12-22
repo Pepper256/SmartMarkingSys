@@ -24,4 +24,5 @@ hs_err_pid*
 replay_pid*
 
 # Intellij build files
-.idea\*
+.idea/*
+src/main/resources/*
