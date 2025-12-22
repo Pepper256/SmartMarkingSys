@@ -25,3 +25,4 @@ replay_pid*
 
 # Intellij build files
 .idea\*
+src\main\resources\config.properties
