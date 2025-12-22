@@ -11,7 +11,7 @@ public class UploadPaperAnswerController {
         this.uploadPaperAnswerInputBoundary = uploadPaperAnswerInputBoundary;
     }
 
-    void execute(String filePath) {
-        uploadPaperAnswerInputBoundary.execute(new UploadPaperAnswerInputData(filePath));
+    void execute(String examFilePath, String answerFilePath) {
+        uploadPaperAnswerInputBoundary.execute(new UploadPaperAnswerInputData(examFilePath, answerFilePath));
     }
 }
