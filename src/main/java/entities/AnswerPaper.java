@@ -1,5 +1,6 @@
 package entities;
 
+import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
@@ -37,13 +38,12 @@ public class AnswerPaper{
      * @return 转换以后的json字符串，储存信息为原来ExamPaper中的信息，如果转换失败则返回null
      */
     public static String answerPaperToJson(AnswerPaper answerPaper) {
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            return mapper.writeValueAsString(answerPaper);
-        }
-        catch (Exception e) {
-            return null;
-        }
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("id", answerPaper.getId());
+        jsonObject.put("subject", answerPaper.getSubject());
+        jsonObject.put("questions", answerPaper.getQuestions());
+        jsonObject.put("answers", answerPaper.getAnswers());
+        return jsonObject.toJSONString();
     }
 
     public String getId() {

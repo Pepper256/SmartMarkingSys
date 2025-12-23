@@ -27,14 +27,17 @@ public class UploadPaperAnswerUseCaseTest {
 
     @Test
     public void UploadPaperAnswerUseCaseApiTest() {
-        useCase.execute(new UploadPaperAnswerInputData("E:\\auto exam answer\\dataset\\exam_answer_1.pdf",
-                "E:\\auto exam answer\\dataset\\exam_answer_1.pdf"));
+        useCase.execute(new UploadPaperAnswerInputData("src/main/resources/test.pdf",
+                "src/main/resources/test.pdf"));
     }
 
     private class MockDao implements UploadPaperAnswerDataAccessInterface {
 
         @Override
         public void storeExamAnswer(ExamPaper examPaper, AnswerPaper answerPaper) {
+
+            System.out.println(ExamPaper.examPaperToJson(examPaper));
+            System.out.println(AnswerPaper.answerPaperToJson(answerPaper));
             System.out.println("stored");
         }
     }
