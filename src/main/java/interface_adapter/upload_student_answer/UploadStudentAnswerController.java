@@ -13,7 +13,7 @@ public class UploadStudentAnswerController {
         this.inputBoundary = inputBoundary;
     }
 
-    public void execute(List<String> paths) {
-        inputBoundary.execute(new UploadStudentAnswerInputData(paths));
+    public void execute(List<String> paths, String examPaperId) {
+        inputBoundary.execute(new UploadStudentAnswerInputData(paths, examPaperId));
     }
 }

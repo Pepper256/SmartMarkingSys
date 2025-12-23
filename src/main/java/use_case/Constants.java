@@ -16,8 +16,8 @@ public class Constants {
             "}。若题目有图，请保留描述并在内容中包含[IMAGE:base64]。若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
     public static final String STUDENT_PROMPT = "你是一个老师。请识别文本中已作答的试卷内容。输出JSON格式：{" +
             "\"subject\": \"学科名\", " +
-            "\"questions\": {\"题号\": \"题目内容\"}" +
-            "\"responses\": {\"题号\": \"回答内容\"}" +
+            "\"questions\": {\"题号\": \"题目内容\"}," +
+            "\"responses\": {\"题号\": \"回答内容\"}," +
             "}。若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
     public static final String MARKING_PROMPT = "你是一个老师。请识别图中试卷内容并批改试卷。" +
             "第一个json包含题目和学生答案的键值对，其中键为题目值为答案。第二个为包含坐标信息的学生作答试卷。" +

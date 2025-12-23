@@ -9,17 +9,20 @@ import java.util.List;
 public class StudentPaper {
 
     private String id;
+    private String examPaperId;
     private HashMap<String, String> questions;
     private HashMap<String, String> responses; // map questions to student responses
     private String subject;
     private String coordContent;
 
     public StudentPaper(String id,
+                        String examPaperId,
                         String subject,
                         HashMap<String, String> questions,
                         HashMap<String, String> responses,
                         String coordContent) {
         this.id = id;
+        this.examPaperId = examPaperId;
         this.questions = questions;
         this.responses = responses;
         this.subject = subject;
@@ -66,6 +69,14 @@ public class StudentPaper {
         this.coordContent = coordContent;
     }
 
+    public String getExamPaperId() {
+        return examPaperId;
+    }
+
+    public void setExamPaperId(String examPaperId) {
+        this.examPaperId = examPaperId;
+    }
+
     /**
      * @param json 需要转化的json字符串，要求包含字段id，subject，questions，responses
      * @return 转换以后的StudentPaper对象，储存信息为json中的信息，如果转换失败则返回null
@@ -83,6 +94,7 @@ public class StudentPaper {
     public String toJsonString() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("id", this.getId());
+        jsonObject.put("examId", this.getExamPaperId());
         jsonObject.put("subject", this.getSubject());
         jsonObject.put("questions", this.getQuestions());
         jsonObject.put("responses", this.getResponses());

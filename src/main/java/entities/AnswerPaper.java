@@ -8,12 +8,18 @@ import java.util.HashMap;
 public class AnswerPaper{
 
     private String id;
+    private String examPaperId;
     private String subject;
     private HashMap<String, String> questions;
     private HashMap<String, String> answers; // map questions to answers
 
-    public AnswerPaper(String id, String subject, HashMap<String, String> questions, HashMap<String, String> answers) {
+    public AnswerPaper(String id,
+                       String examPaperId,
+                       String subject,
+                       HashMap<String, String> questions,
+                       HashMap<String, String> answers) {
         this.id = id;
+        this.examPaperId = examPaperId;
         this.subject = subject;
         this.questions = questions;
         this.answers = answers;
@@ -36,6 +42,7 @@ public class AnswerPaper{
     public String toJsonString() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("id", this.getId());
+        jsonObject.put("examPaperId", this.getExamPaperId());
         jsonObject.put("subject", this.getSubject());
         jsonObject.put("questions", this.getQuestions());
         jsonObject.put("answers", this.getAnswers());
@@ -58,6 +65,10 @@ public class AnswerPaper{
         return questions;
     }
 
+    public String getExamPaperId() {
+        return examPaperId;
+    }
+
     public void setQuestions(HashMap<String, String> questions) {
         this.questions = questions;
     }
@@ -72,5 +83,9 @@ public class AnswerPaper{
 
     public void setAnswers(HashMap<String, String> answers) {
         this.answers = answers;
+    }
+
+    public void setExamPaperId(String examPaperId) {
+        this.examPaperId = examPaperId;
     }
 }
