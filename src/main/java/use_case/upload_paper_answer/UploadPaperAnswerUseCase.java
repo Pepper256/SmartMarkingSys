@@ -13,7 +13,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
@@ -214,7 +213,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
     private HttpPost getHttpPost(String base64Image, String prompt) {
         HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
 
-        httpPost.setHeader("Authorization", "Bearer " + Main.loadApiKey());
+        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
         httpPost.setHeader("Content-Type", "application/json");
 
         // 2. 构建符合 DashScope 规范的请求体

@@ -3,6 +3,7 @@ package use_case;
 public class Constants {
 
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
+    public static final String DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
     public static final String DAO_PATH = "./src/main/resources/database/data.json";
 
@@ -13,4 +14,7 @@ public class Constants {
             "\"subject\": \"学科名\", " +
             "\"questions\": {\"题号\": \"题目内容\"}" +
             "}。若题目有图，请保留描述并在内容中包含[IMAGE:base64]。若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
+    public static final String MARKING_PROMPT = "你是一个老师。请识别图中试卷内容并批改试卷。输出JSON格式：" +
+            "保持输入的json格式不变，在每一个可能为学生回答的json对象内添加新的字段，\"marked\":true或false，代表该题正确性。" +
+            "若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
 }

@@ -1,7 +1,6 @@
 package use_case;
 
 import app.Main;
-import dao.ExamAnswerInfoDao;
 import entities.AnswerPaper;
 import entities.ExamPaper;
 import interface_adapter.upload_paper_answer.UploadPaperAnswerPresenter;
@@ -20,7 +19,7 @@ public class UploadPaperAnswerUseCaseTest {
 
     @BeforeEach
     void setup() {
-        apikey = Main.loadApiKey();
+        apikey = Main.loadQwenApiKey();
         useCase = new UploadPaperAnswerUseCase(presenter, dao);
 
     }
