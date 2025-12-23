@@ -53,7 +53,7 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
             String content = JSON.toJSONString(map);
 
             try {
-                String markedContent = askDeepSeek(content);
+                String markedContent = askDeepSeek(content + "\n" +studentPaper.getCoordContent());
 
                 markedPapers.add(new MarkedStudentPaper(studentPaper, markedContent));
                 markedContentWithCoords.add(markedContent);
