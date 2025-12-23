@@ -1,5 +1,7 @@
 package use_case;
 
+import java.nio.file.Paths;
+
 public class Constants {
 
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
@@ -29,4 +31,6 @@ public class Constants {
             "输出的json的第一个字段的说明到此结束，接下来为第二个字段的说明," +
             "\"markWithCoords\":第二个输入的json，保持该json格式不变，在每一个可能为学生回答的json对象内添加新的字段，\"marked\":true或false，代表该题正确性。" +
             "}，若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
+
+    public static final String DOWNLOAD_PATH = Paths.get(System.getProperty("user.home"), "Downloads").toString();
 }
