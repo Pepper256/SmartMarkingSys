@@ -7,10 +7,10 @@ import java.util.HashMap;
 
 public class AnswerPaper{
 
-    private final String id;
-    private final String subject;
-    private final HashMap<String, String> questions;
-    private final HashMap<String, String> answers; // map questions to answers
+    private String id;
+    private String subject;
+    private HashMap<String, String> questions;
+    private HashMap<String, String> answers; // map questions to answers
 
     public AnswerPaper(String id, String subject, HashMap<String, String> questions, HashMap<String, String> answers) {
         this.id = id;
@@ -56,5 +56,21 @@ public class AnswerPaper{
 
     public HashMap<String, String> getQuestions() {
         return questions;
+    }
+
+    public void setQuestions(HashMap<String, String> questions) {
+        this.questions = questions;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public void setAnswers(HashMap<String, String> answers) {
+        this.answers = answers;
     }
 }

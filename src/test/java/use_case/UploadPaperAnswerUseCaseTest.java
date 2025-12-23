@@ -19,7 +19,7 @@ public class UploadPaperAnswerUseCaseTest {
 
     @BeforeEach
     void setup() {
-        apikey = Main.loadApiKey();
+        apikey = Main.loadQwenApiKey();
         useCase = new UploadPaperAnswerUseCase(presenter, dao);
 
     }
