@@ -37,6 +37,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     @Override
     public void execute(UploadStudentAnswerInputData inputData) {
         List<String> paths = inputData.getPaths();
+        String examPaperId = inputData.getExamPaperId();
 
         List<StudentPaper> papers = new ArrayList<>();
         for (String path : paths) {
@@ -49,6 +50,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
                     JSONObject temp = JSON.parseObject(studentAnswer);
                     temp.put("coordContent", processedContent);
+                    temp.put("examPaperId", examPaperId);
 
                     papers.add(StudentPaper.jsonToStudentPaper(studentAnswer));
                 } else {
