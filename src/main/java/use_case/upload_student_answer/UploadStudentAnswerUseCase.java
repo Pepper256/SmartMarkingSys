@@ -1,11 +1,12 @@
 package use_case.upload_student_answer;
 
 import app.Main;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import entities.StudentPaper;
-import jdk.javadoc.internal.doclets.toolkit.util.DocFinder;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -19,10 +20,6 @@ import use_case.dto.UploadStudentAnswerOutputData;
 import use_case.util.FileUtil;
 
 import java.io.IOException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -50,7 +47,10 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
                     String processedContent = ocrProcess(path);
                     String studentAnswer = askDeepSeek(processedContent);
 
-                    papers.add(StudentPaper.jsonToExamPaper(studentAnswer));
+                    JSONObject temp = JSON.parseObject(studentAnswer);
+                    temp.put("coordContent", processedContent);
+
+                    papers.add(StudentPaper.jsonToStudentPaper(studentAnswer));
                 } else {
                     throw new IllegalArgumentException("文件类型不支持");
                 }

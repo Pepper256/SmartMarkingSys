@@ -4,7 +4,6 @@ import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
-import java.util.List;
 
 public class StudentPaper {
 
@@ -12,12 +11,18 @@ public class StudentPaper {
     private HashMap<String, String> questions;
     private HashMap<String, String> responses; // map questions to student responses
     private String subject;
+    private String coordContent;
 
-    public StudentPaper(String id, String subject, HashMap<String, String> questions, HashMap<String, String> responses) {
+    public StudentPaper(String id,
+                        String subject,
+                        HashMap<String, String> questions,
+                        HashMap<String, String> responses,
+                        String coordContent) {
         this.id = id;
         this.questions = questions;
         this.responses = responses;
         this.subject = subject;
+        this.coordContent = coordContent;
     }
 
     public HashMap<String, String> getQuestions() {
@@ -52,11 +57,19 @@ public class StudentPaper {
         return responses;
     }
 
+    public String getCoordContent() {
+        return coordContent;
+    }
+
+    public void setCoordContent(String coordContent) {
+        this.coordContent = coordContent;
+    }
+
     /**
      * @param json 需要转化的json字符串，要求包含字段id，subject，questions，responses
      * @return 转换以后的StudentPaper对象，储存信息为json中的信息，如果转换失败则返回null
      */
-    public static StudentPaper jsonToExamPaper(String json){
+    public static StudentPaper jsonToStudentPaper(String json){
         ObjectMapper mapper = new ObjectMapper();
         try {
             return mapper.readValue(json, StudentPaper.class);
@@ -72,6 +85,7 @@ public class StudentPaper {
         jsonObject.put("subject", this.getSubject());
         jsonObject.put("questions", this.getQuestions());
         jsonObject.put("responses", this.getResponses());
+        jsonObject.put("coordContent", this.getCoordContent());
         return jsonObject.toJSONString();
     }
 }
