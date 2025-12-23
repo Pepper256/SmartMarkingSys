@@ -2,11 +2,13 @@ package use_case.auto_marking;
 
 import app.Main;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import entities.MarkedStudentPaper;
 import entities.StudentPaper;
+import jdk.vm.ci.code.site.Mark;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -44,19 +46,35 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
             StudentPaper studentPaper = dao.getStudentPaperById(id);
 
             // 构建问题答案键值对字符串
-            HashMap<String, String> map = new HashMap<>();
+            HashMap<String, HashMap<String, String>> map = new HashMap<>();
             for (String key : studentPaper.getQuestions().keySet()) {
-                String relatedQuestion = studentPaper.getQuestions().get(key);
-                String relatedResponse = studentPaper.getResponses().get(key);
-                map.put(relatedQuestion, relatedResponse);
+                HashMap<String, String> temp = new HashMap<String, String>();
+                temp.put("question", studentPaper.getQuestions().get(key));
+                temp.put("response", studentPaper.getResponses().get(key));
+                map.put(key, temp);
             }
             String content = JSON.toJSONString(map);
 
             try {
-                String markedContent = askDeepSeek(content + "\n" +studentPaper.getCoordContent());
+                String jsonWithMarkedContent = askDeepSeek(content + "\n" +studentPaper.getCoordContent());
+                JSONObject temp = JSON.parseObject(jsonWithMarkedContent);
+                JSONObject answerInfo = temp.getJSONObject("answerInfo");
 
-                markedPapers.add(new MarkedStudentPaper(studentPaper, markedContent));
-                markedContentWithCoords.add(markedContent);
+                HashMap<String, Boolean> correctness = new HashMap<>();
+                HashMap<String, String> reasons = new HashMap<>();
+                for (String key : answerInfo.keySet()) {
+                    correctness.put(key, answerInfo.getBoolean("marked"));
+                    reasons.put(key, answerInfo.getString("reason"));
+                }
+
+
+                markedPapers.add(new MarkedStudentPaper(
+                        studentPaper,
+                        correctness,
+                        temp.getJSONObject("markWithCoords").toJSONString(),
+                        reasons)
+                );
+                markedContentWithCoords.add(jsonWithMarkedContent);
             }
             catch (Exception e) {
                 outputBoundary.prepareFailView(new AutoMarkingOutputData(new ArrayList<String>()));
