@@ -22,6 +22,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -72,66 +73,101 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
         String examId = "EXAM_" + UUID.randomUUID().toString().substring(0, 8);
 
-        // 1. 第一次加载仅为了获取总页数
-        int pageCount;
-        try (PDDocument metaDoc = Loader.loadPDF(file)) {
-            pageCount = metaDoc.getNumberOfPages();
-        }
+        if (getFileExtension(pdfPath).equals("pdf"))
+        {// 1. 第一次加载仅为了获取总页数
+            int pageCount;
+            try (PDDocument metaDoc = Loader.loadPDF(file)) {
+                pageCount = metaDoc.getNumberOfPages();
+            }
 
-        List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
+            List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
 
-        // 2. 循环提交任务
-        for (int i = 0; i < pageCount; i++) {
-            final int pageIndex = i;
-            CompletableFuture<JSONObject> future = CompletableFuture.supplyAsync(() -> {
-                // 【核心修复】：为每个子线程创建独立的随机访问文件句柄
-                // 确保线程安全，避免 PDFBox 底层 I/O 冲突导致的 NPE
-                try (RandomAccessReadBufferedFile raFile = new RandomAccessReadBufferedFile(file);
-                     PDDocument document = Loader.loadPDF(raFile)) {
+            // 2. 循环提交任务
+            for (int i = 0; i < pageCount; i++) {
+                final int pageIndex = i;
+                CompletableFuture<JSONObject> future = CompletableFuture.supplyAsync(() -> {
+                    // 【核心修复】：为每个子线程创建独立的随机访问文件句柄
+                    // 确保线程安全，避免 PDFBox 底层 I/O 冲突导致的 NPE
+                    try (RandomAccessReadBufferedFile raFile = new RandomAccessReadBufferedFile(file);
+                         PDDocument document = Loader.loadPDF(raFile)) {
 
-                    PDFRenderer renderer = new PDFRenderer(document);
+                        PDFRenderer renderer = new PDFRenderer(document);
 
-                    // 渲染指定页面
-                    BufferedImage image = renderer.renderImageWithDPI(pageIndex, 144);
+                        // 渲染指定页面
+                        BufferedImage image = renderer.renderImageWithDPI(pageIndex, 144);
 
-                    try {
-                        if (image == null) {
-                            throw new RuntimeException("第 " + pageIndex + " 页渲染结果为空");
-                        }
-                        String base64 = encodeImageToBase64(image);
+                        try {
+                            if (image == null) {
+                                throw new RuntimeException("第 " + pageIndex + " 页渲染结果为空");
+                            }
+                            String base64 = encodeImageToBase64(image);
 
-                        // 调用 API
-                        return callQwenVlApi(examId, base64, pageIndex, "exam");
+                            // 调用 API
+                            return callQwenVlApi(examId, base64, pageIndex, "exam");
 //                        return new JSONObject();
-                    } finally {
-                        // 【内存修复】：显式刷新图片资源，释放堆外内存
-                        if (image != null) {
-                            image.flush();
+                        } finally {
+                            // 【内存修复】：显式刷新图片资源，释放堆外内存
+                            if (image != null) {
+                                image.flush();
+                            }
                         }
+                    } catch (Exception e) {
+                        System.err.println("第 " + pageIndex + " 页处理异常: " + e.getMessage());
+                        throw new RuntimeException("第 " + pageIndex + " 页处理失败", e);
                     }
-                } catch (Exception e) {
-                    System.err.println("第 " + pageIndex + " 页处理异常: " + e.getMessage());
-                    throw new RuntimeException("第 " + pageIndex + " 页处理失败", e);
+                }, ThreadUtil.getExecutor());
+
+                futures.add(future);
+            }
+
+            try {
+                // 3. 等待所有页面处理完成
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+                // 4. 合并结果
+                return mergeResults(examId, futures);
+            } catch (Exception e) {
+                // 【健壮性】：异常时清理未完成的任务，防止内存持续泄露
+                for (CompletableFuture<JSONObject> f : futures) {
+                    if (!f.isDone()) {
+                        f.cancel(true);
+                    }
+                }
+                throw new Exception("Exam PDF 处理流程失败", e);
+            }
+        }
+        else if(getFileExtension(pdfPath).equals("png")) {
+            // 1. 基础校验
+            if (!file.exists()) {
+                throw new IOException("文件不存在或为空");
+            }
+
+            // 2. 使用 ImageIO 读取文件
+            // 如果文件不是图片或格式不支持，read() 会返回 null
+            BufferedImage image = ImageIO.read(file);
+
+            // 3. 确保结果不为 null
+            if (image == null) {
+                throw new IOException("无法解码文件：该文件可能损坏或不是支持的图片格式");
+            }
+
+            List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
+
+            CompletableFuture<JSONObject> future = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return callQwenVlApi(examId, encodeImageToBase64(image), 0, "exam");
+                }
+                catch (Exception e) {
+                    throw new RuntimeException("图片处理失败");
                 }
             }, ThreadUtil.getExecutor());
 
             futures.add(future);
-        }
 
-        try {
-            // 3. 等待所有页面处理完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-            // 4. 合并结果
             return mergeResults(examId, futures);
-        } catch (Exception e) {
-            // 【健壮性】：异常时清理未完成的任务，防止内存持续泄露
-            for (CompletableFuture<JSONObject> f : futures) {
-                if (!f.isDone()) {
-                    f.cancel(true);
-                }
-            }
-            throw new Exception("Exam PDF 处理流程失败", e);
+        }
+        else {
+            throw new IllegalArgumentException("文件类型不支持");
         }
     }
 
@@ -232,7 +268,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         return finalJson.toJSONString();
     }
 
-    public String processAnswerPdf(String pdfPath) throws Exception {
+    private String processAnswerPdf(String pdfPath) throws Exception {
         File file = new File(pdfPath);
         if (!file.exists()) {
             throw new FileNotFoundException("PDF文件不存在: " + pdfPath);
@@ -240,57 +276,94 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
         String answerId = "ANSWER_" + System.currentTimeMillis();
 
-        // 1. 获取总页数
-        int totalPages;
-        try (PDDocument metaDoc = Loader.loadPDF(file)) {
-            totalPages = metaDoc.getNumberOfPages();
+        if (getFileExtension(pdfPath).equals("pdf"))
+        {// 1. 获取总页数
+            int totalPages;
+            try (PDDocument metaDoc = Loader.loadPDF(file)) {
+                totalPages = metaDoc.getNumberOfPages();
+            }
+
+            List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
+
+            for (int i = 0; i < totalPages; i++) {
+                final int pageIdx = i;
+
+                CompletableFuture<JSONObject> future = CompletableFuture.supplyAsync(() -> {
+                    // 【3.x 核心修复】：使用 RandomAccessReadBufferedFile 独立加载
+                    // 这确保了每个线程拥有独立的文件流句柄和缓冲区，避免 NPE
+                    try (RandomAccessReadBufferedFile raFile = new RandomAccessReadBufferedFile(file);
+                         PDDocument document = Loader.loadPDF(raFile)) {
+
+                        PDFRenderer renderer = new PDFRenderer(document);
+
+                        // 渲染图片
+                        BufferedImage pageImage = renderer.renderImageWithDPI(pageIdx, 144);
+
+                        try {
+                            if (pageImage == null) {
+                                throw new RuntimeException("第 " + pageIdx + " 页渲染为空");
+                            }
+                            String pageBase64 = encodeImageToBase64(pageImage);
+                            return callQwenVlApi(answerId, pageBase64, pageIdx, "answer");
+//                        return new JSONObject();
+                        } finally {
+                            if (pageImage != null) {
+                                pageImage.flush(); // 释放 BufferedImage 的 native 资源
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("处理第 " + pageIdx + " 页异常: " + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                }, ThreadUtil.getExecutor());
+
+                futures.add(future);
+            }
+
+            try {
+                // 等待所有异步任务完成
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                return aggregateResults(answerId, futures);
+            } catch (Exception e) {
+                // 异常清理逻辑
+                futures.forEach(f -> {
+                    if (!f.isDone()) f.cancel(true);
+                });
+                throw new Exception("处理失败: " + e.getMessage(), e);
+            }
         }
+        else if (getFileExtension(pdfPath).equals("png")) {
+            // 1. 基础校验
+            if (!file.exists()) {
+                throw new IOException("文件不存在或为空");
+            }
 
-        List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
+            // 2. 使用 ImageIO 读取文件
+            // 如果文件不是图片或格式不支持，read() 会返回 null
+            BufferedImage image = ImageIO.read(file);
 
-        for (int i = 0; i < totalPages; i++) {
-            final int pageIdx = i;
+            // 3. 确保结果不为 null
+            if (image == null) {
+                throw new IOException("无法解码文件：该文件可能损坏或不是支持的图片格式");
+            }
+
+            List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
 
             CompletableFuture<JSONObject> future = CompletableFuture.supplyAsync(() -> {
-                // 【3.x 核心修复】：使用 RandomAccessReadBufferedFile 独立加载
-                // 这确保了每个线程拥有独立的文件流句柄和缓冲区，避免 NPE
-                try (RandomAccessReadBufferedFile raFile = new RandomAccessReadBufferedFile(file);
-                     PDDocument document = Loader.loadPDF(raFile)) {
-
-                    PDFRenderer renderer = new PDFRenderer(document);
-
-                    // 渲染图片
-                    BufferedImage pageImage = renderer.renderImageWithDPI(pageIdx, 144);
-
-                    try {
-                        if (pageImage == null) {
-                            throw new RuntimeException("第 " + pageIdx + " 页渲染为空");
-                        }
-                        String pageBase64 = encodeImageToBase64(pageImage);
-                        return callQwenVlApi(answerId, pageBase64, pageIdx, "answer");
-//                        return new JSONObject();
-                    } finally {
-                        if (pageImage != null) {
-                            pageImage.flush(); // 释放 BufferedImage 的 native 资源
-                        }
-                    }
-                } catch (Exception e) {
-                    System.err.println("处理第 " + pageIdx + " 页异常: " + e.getMessage());
-                    throw new RuntimeException(e);
+                try {
+                    return callQwenVlApi(answerId, encodeImageToBase64(image), 0, "answer");
+                }
+                catch (Exception e) {
+                    throw new RuntimeException("图片处理失败");
                 }
             }, ThreadUtil.getExecutor());
 
             futures.add(future);
-        }
 
-        try {
-            // 等待所有异步任务完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-            return aggregateResults(answerId, futures);
-        } catch (Exception e) {
-            // 异常清理逻辑
-            futures.forEach(f -> { if(!f.isDone()) f.cancel(true); });
-            throw new Exception("处理失败: " + e.getMessage(), e);
+            return mergeResults(answerId, futures);
+        }
+        else {
+            throw new IllegalArgumentException("文件类型不支持");
         }
     }
 
@@ -319,5 +392,31 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "png", baos);
         return Base64.getEncoder().encodeToString(baos.toByteArray());
+    }
+
+    private String getFileExtension(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            return "";
+        }
+
+        // 1. 获取最后一个点的位置
+        int lastDotIndex = filePath.lastIndexOf('.');
+
+        // 2. 获取最后一个路径分隔符的位置（兼容 Windows 和 Unix）
+        int lastSeparatorIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+
+        // 3. 逻辑判断：
+        // 点必须存在，且点必须在最后一个路径分隔符之后
+        // 并且点不能是字符串的最后一个字符
+        if (lastDotIndex > lastSeparatorIndex && lastDotIndex < filePath.length() - 1) {
+            return filePath.substring(lastDotIndex + 1);
+        }
+
+        return ""; // 没有后缀名
+    }
+
+    private String ocrProcess(String path, String type) {
+        // TODO: OCR 处理文件
+        return "";
     }
 }
