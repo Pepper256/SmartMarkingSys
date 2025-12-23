@@ -52,9 +52,14 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
             String examJson = processExamPdf(examFilePath);
             String answerJson = processAnswerPdf(answerFilePath);
 
+            // 添加答案id给试卷
             JSONObject temp = JSON.parseObject(examJson);
             temp.put("answerId", JSON.parseObject(answerJson).getString("id"));
             examJson = temp.toJSONString();
+            // 添加试卷id答案
+            temp = JSON.parseObject(answerJson);
+            temp.put("examPaperId", JSON.parseObject(examJson).getString("id"));
+            answerJson = temp.toJSONString();
 
             dao.storeExamAnswer(ExamPaper.jsonToExamPaper(examJson), AnswerPaper.jsonToAnswerPaper(answerJson));
 
