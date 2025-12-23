@@ -35,8 +35,8 @@ public class UploadPaperAnswerUseCaseTest {
         @Override
         public void storeExamAnswer(ExamPaper examPaper, AnswerPaper answerPaper) {
 
-            System.out.println(ExamPaper.examPaperToJson(examPaper));
-            System.out.println(AnswerPaper.answerPaperToJson(answerPaper));
+            System.out.println(examPaper.toJsonString());
+            System.out.println(answerPaper.toJsonString());
             System.out.println("stored");
         }
     }

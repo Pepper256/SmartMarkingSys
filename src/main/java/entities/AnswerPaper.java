@@ -7,10 +7,10 @@ import java.util.HashMap;
 
 public class AnswerPaper{
 
-    private final String id;
-    private final String subject;
-    private final HashMap<String, String> questions;
-    private final HashMap<String, String> answers; // map questions to answers
+    private String id;
+    private String subject;
+    private HashMap<String, String> questions;
+    private HashMap<String, String> answers; // map questions to answers
 
     public AnswerPaper(String id, String subject, HashMap<String, String> questions, HashMap<String, String> answers) {
         this.id = id;
@@ -33,16 +33,12 @@ public class AnswerPaper{
         }
     }
 
-    /**
-     * @param answerPaper 需要转化的AnswerPaper对象
-     * @return 转换以后的json字符串，储存信息为原来ExamPaper中的信息，如果转换失败则返回null
-     */
-    public static String answerPaperToJson(AnswerPaper answerPaper) {
+    public String toJsonString() {
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("id", answerPaper.getId());
-        jsonObject.put("subject", answerPaper.getSubject());
-        jsonObject.put("questions", answerPaper.getQuestions());
-        jsonObject.put("answers", answerPaper.getAnswers());
+        jsonObject.put("id", this.getId());
+        jsonObject.put("subject", this.getSubject());
+        jsonObject.put("questions", this.getQuestions());
+        jsonObject.put("answers", this.getAnswers());
         return jsonObject.toJSONString();
     }
 
@@ -60,5 +56,21 @@ public class AnswerPaper{
 
     public HashMap<String, String> getQuestions() {
         return questions;
+    }
+
+    public void setQuestions(HashMap<String, String> questions) {
+        this.questions = questions;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public void setAnswers(HashMap<String, String> answers) {
+        this.answers = answers;
     }
 }
