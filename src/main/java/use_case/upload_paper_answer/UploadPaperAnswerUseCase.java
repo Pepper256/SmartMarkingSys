@@ -58,10 +58,15 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
             dao.storeExamAnswer(ExamPaper.jsonToExamPaper(examJson), AnswerPaper.jsonToAnswerPaper(answerJson));
 
-            uploadPaperAnswerOutputBoundary.prepareSuccessView(new UploadPaperAnswerOutputData());
+            uploadPaperAnswerOutputBoundary.prepareSuccessView(new UploadPaperAnswerOutputData(
+                    ExamPaper.jsonToExamPaper(examJson).getId(),
+                    AnswerPaper.jsonToAnswerPaper(answerJson).getId()));
         }
         catch (Exception e) {
-            uploadPaperAnswerOutputBoundary.prepareFailView(new UploadPaperAnswerOutputData());
+            uploadPaperAnswerOutputBoundary.prepareFailView(new UploadPaperAnswerOutputData(
+                    "",
+                    ""
+            ));
         }
     }
 

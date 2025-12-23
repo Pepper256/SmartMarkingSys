@@ -33,16 +33,12 @@ public class AnswerPaper{
         }
     }
 
-    /**
-     * @param answerPaper 需要转化的AnswerPaper对象
-     * @return 转换以后的json字符串，储存信息为原来ExamPaper中的信息，如果转换失败则返回null
-     */
-    public static String answerPaperToJson(AnswerPaper answerPaper) {
+    public String toJsonString() {
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("id", answerPaper.getId());
-        jsonObject.put("subject", answerPaper.getSubject());
-        jsonObject.put("questions", answerPaper.getQuestions());
-        jsonObject.put("answers", answerPaper.getAnswers());
+        jsonObject.put("id", this.getId());
+        jsonObject.put("subject", this.getSubject());
+        jsonObject.put("questions", this.getQuestions());
+        jsonObject.put("answers", this.getAnswers());
         return jsonObject.toJSONString();
     }
 

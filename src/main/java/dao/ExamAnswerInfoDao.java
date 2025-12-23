@@ -6,14 +6,12 @@ import entities.ExamPaper;
 import use_case.Constants;
 import use_case.upload_paper_answer.UploadPaperAnswerDataAccessInterface;
 
-import javax.xml.crypto.Data;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.List;
 
 public class ExamAnswerInfoDao implements UploadPaperAnswerDataAccessInterface {
@@ -54,8 +52,8 @@ public class ExamAnswerInfoDao implements UploadPaperAnswerDataAccessInterface {
 
     @Override
     public void storeExamAnswer(ExamPaper examPaper, AnswerPaper answerPaper) {
-        String examJson = ExamPaper.examPaperToJson(examPaper);
-        String answerJson = AnswerPaper.answerPaperToJson(answerPaper);
+        String examJson = examPaper.toJsonString();
+        String answerJson = answerPaper.toJsonString();
 
         String relativePath = Constants.DAO_PATH;
         String jsonString = null;
