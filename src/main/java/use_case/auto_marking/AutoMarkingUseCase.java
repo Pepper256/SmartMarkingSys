@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import entities.MarkedStudentPaper;
 import entities.StudentPaper;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -37,7 +38,8 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
     public void execute(AutoMarkingInputData inputData) {
         List<String> ids = inputData.getStudentPaperIds();
 
-        List<String> markedPapers = new ArrayList<>();
+        List<MarkedStudentPaper> markedPapers = new ArrayList<>();
+        List<String> markedContentWithCoords = new ArrayList<>();
         for (String id : ids) {
             StudentPaper studentPaper = dao.getStudentPaperById(id);
 
@@ -53,15 +55,17 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
             try {
                 String markedContent = askDeepSeek(content);
 
-                markedPapers.add(markedContent);
+                markedPapers.add(new MarkedStudentPaper(studentPaper, markedContent));
+                markedContentWithCoords.add(markedContent);
             }
             catch (Exception e) {
                 outputBoundary.prepareFailView(new AutoMarkingOutputData(new ArrayList<String>()));
             }
         }
 
+        dao.storeMarkedPapers(markedPapers);
 
-        outputBoundary.prepareSuccessView(new AutoMarkingOutputData(markedPapers));
+        outputBoundary.prepareSuccessView(new AutoMarkingOutputData(markedContentWithCoords));
     }
 
     private String askDeepSeek(String content) throws Exception {
