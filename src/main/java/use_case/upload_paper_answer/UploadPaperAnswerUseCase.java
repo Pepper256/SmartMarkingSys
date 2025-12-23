@@ -13,7 +13,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
@@ -30,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import use_case.Constants;
 import use_case.dto.UploadPaperAnswerInputData;
 import use_case.dto.UploadPaperAnswerOutputData;
+import use_case.util.FileUtil;
 import use_case.util.ThreadUtil;
 
 public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
@@ -58,10 +58,15 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
             dao.storeExamAnswer(ExamPaper.jsonToExamPaper(examJson), AnswerPaper.jsonToAnswerPaper(answerJson));
 
-            uploadPaperAnswerOutputBoundary.prepareSuccessView(new UploadPaperAnswerOutputData());
+            uploadPaperAnswerOutputBoundary.prepareSuccessView(new UploadPaperAnswerOutputData(
+                    ExamPaper.jsonToExamPaper(examJson).getId(),
+                    AnswerPaper.jsonToAnswerPaper(answerJson).getId()));
         }
         catch (Exception e) {
-            uploadPaperAnswerOutputBoundary.prepareFailView(new UploadPaperAnswerOutputData());
+            uploadPaperAnswerOutputBoundary.prepareFailView(new UploadPaperAnswerOutputData(
+                    "",
+                    ""
+            ));
         }
     }
 
@@ -73,7 +78,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
         String examId = "EXAM_" + UUID.randomUUID().toString().substring(0, 8);
 
-        if (getFileExtension(pdfPath).equals("pdf"))
+        if (FileUtil.getFileExtension(pdfPath).equals("pdf"))
         {// 1. 第一次加载仅为了获取总页数
             int pageCount;
             try (PDDocument metaDoc = Loader.loadPDF(file)) {
@@ -136,7 +141,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
                 throw new Exception("Exam PDF 处理流程失败", e);
             }
         }
-        else if(getFileExtension(pdfPath).equals("png")) {
+        else if(FileUtil.getFileExtension(pdfPath).equals("png")) {
             // 1. 基础校验
             if (!file.exists()) {
                 throw new IOException("文件不存在或为空");
@@ -214,7 +219,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
     private HttpPost getHttpPost(String base64Image, String prompt) {
         HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
 
-        httpPost.setHeader("Authorization", "Bearer " + Main.loadApiKey());
+        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
         httpPost.setHeader("Content-Type", "application/json");
 
         // 2. 构建符合 DashScope 规范的请求体
@@ -276,7 +281,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
         String answerId = "ANSWER_" + System.currentTimeMillis();
 
-        if (getFileExtension(pdfPath).equals("pdf"))
+        if (FileUtil.getFileExtension(pdfPath).equals("pdf"))
         {// 1. 获取总页数
             int totalPages;
             try (PDDocument metaDoc = Loader.loadPDF(file)) {
@@ -332,7 +337,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
                 throw new Exception("处理失败: " + e.getMessage(), e);
             }
         }
-        else if (getFileExtension(pdfPath).equals("png")) {
+        else if (FileUtil.getFileExtension(pdfPath).equals("png")) {
             // 1. 基础校验
             if (!file.exists()) {
                 throw new IOException("文件不存在或为空");
@@ -392,27 +397,6 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "png", baos);
         return Base64.getEncoder().encodeToString(baos.toByteArray());
-    }
-
-    private String getFileExtension(String filePath) {
-        if (filePath == null || filePath.isEmpty()) {
-            return "";
-        }
-
-        // 1. 获取最后一个点的位置
-        int lastDotIndex = filePath.lastIndexOf('.');
-
-        // 2. 获取最后一个路径分隔符的位置（兼容 Windows 和 Unix）
-        int lastSeparatorIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
-
-        // 3. 逻辑判断：
-        // 点必须存在，且点必须在最后一个路径分隔符之后
-        // 并且点不能是字符串的最后一个字符
-        if (lastDotIndex > lastSeparatorIndex && lastDotIndex < filePath.length() - 1) {
-            return filePath.substring(lastDotIndex + 1);
-        }
-
-        return ""; // 没有后缀名
     }
 
     private String ocrProcess(String path, String type) {

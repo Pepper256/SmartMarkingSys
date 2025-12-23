@@ -4,14 +4,13 @@ import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
-import java.util.List;
 
 public class ExamPaper {
 
-    private final String id;
-    private final String subject;
-    private final HashMap<String, String> questions;
-    private final String answerId;
+    private String id;
+    private String subject;
+    private HashMap<String, String> questions;
+    private String answerId;
 
     public ExamPaper(String id, String subject, HashMap<String, String> questions, String answerId) {
         this.id = id;
@@ -34,16 +33,12 @@ public class ExamPaper {
         }
     }
 
-    /**
-     * @param examPaper 需要转化的ExamPaper对象
-     * @return 转换以后的json字符串，储存信息为原来ExamPaper中的信息，如果转换失败则返回null
-     */
-    public static String examPaperToJson(ExamPaper examPaper) {
+    public String toJsonString() {
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("id", examPaper.getId());
-        jsonObject.put("subject", examPaper.getSubject());
-        jsonObject.put("questions", examPaper.getQuestions());
-        jsonObject.put("answerId", examPaper.answerId);
+        jsonObject.put("id", this.getId());
+        jsonObject.put("subject", this.getSubject());
+        jsonObject.put("questions", this.getQuestions());
+        jsonObject.put("answerId", this.getAnswerId());
         return jsonObject.toJSONString();
     }
 
@@ -61,5 +56,21 @@ public class ExamPaper {
 
     public String getAnswerId() {
         return answerId;
+    }
+
+    public void setQuestions(HashMap<String, String> questions) {
+        this.questions = questions;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public void setAnswerId(String answerId) {
+        this.answerId = answerId;
     }
 }
