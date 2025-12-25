@@ -12,6 +12,8 @@ public class ExamPaper {
     private HashMap<String, String> questions;
     private String answerId;
 
+    public ExamPaper() {}
+
     public ExamPaper(String id, String subject, HashMap<String, String> questions, String answerId) {
         this.id = id;
         this.subject = subject;
@@ -39,7 +41,7 @@ public class ExamPaper {
         jsonObject.put("subject", this.getSubject());
         jsonObject.put("questions", this.getQuestions());
         jsonObject.put("answerId", this.getAnswerId());
-        return jsonObject.toJSONString();
+        return jsonObject.toJSONString().trim();
     }
 
     public String getId() {
@@ -72,5 +74,20 @@ public class ExamPaper {
 
     public void setAnswerId(String answerId) {
         this.answerId = answerId;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        try {
+            ExamPaper examPaperObj = (ExamPaper) obj;
+
+            return examPaperObj.getId().equals(this.id) &&
+                    examPaperObj.getQuestions().equals(this.questions) &&
+                    examPaperObj.getSubject().equals(this.subject) &&
+                    examPaperObj.getAnswerId().equals(this.getAnswerId());
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 }
