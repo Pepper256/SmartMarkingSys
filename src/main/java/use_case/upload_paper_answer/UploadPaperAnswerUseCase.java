@@ -4,6 +4,11 @@ import app.Main;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.sun.org.apache.bcel.internal.Const;
 import entities.AnswerPaper;
 import entities.ExamPaper;
 import org.apache.http.client.methods.HttpPost;
@@ -210,9 +215,72 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
-        // ... 原有逻辑保持不变 ...
-        String base64 = encodeImageToBase64(image);
-        // TODO: 调用 OCR API 并返回结果
-        return ""; // 实际实现
+        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+    }
+
+    private static final String API_URL = "https://api.openai.com/v1/chat/completions";
+    private static final String API_KEY = "sk-xxxxxxxxxxxxxxxxxxxx";
+    private static final String MODEL_NAME = "gpt-4o"; // 必须使用支持视觉的模型
+
+    private static final ObjectMapper mapper = new ObjectMapper();
+
+    /**
+     * 输入图片，通过大模型进行识别解析
+     */
+    public String getLLMResponseFromImage(BufferedImage image, String prompt) {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+
+            // 1. 将 BufferedImage 转换为 Base64 字符串
+            String base64Image = encodeImageToBase64(image);
+
+            // 2. 构造请求体 (OpenAI Vision 格式)
+            ObjectNode rootNode = mapper.createObjectNode();
+            rootNode.put("model", Constants.OCR_MODEL_NAME);
+
+            ArrayNode messagesArray = rootNode.putArray("messages");
+            ObjectNode userMessage = messagesArray.addObject();
+            userMessage.put("role", "user");
+
+            // 多模态 content 是一个数组
+            ArrayNode contentArray = userMessage.putArray("content");
+
+            // 文本部分
+            ObjectNode textContent = contentArray.addObject();
+            textContent.put("type", "text");
+            textContent.put("text", prompt);
+
+            // 图片部分
+            ObjectNode imageContent = contentArray.addObject();
+            imageContent.put("type", "image_url");
+            ObjectNode imageUrl = imageContent.putObject("image_url");
+            // 格式必须为 data:image/png;base64,{base64_data}
+            imageUrl.put("url", "data:image/png;base64," + base64Image);
+
+            // 3. 发送请求
+            HttpPost httpPost = new HttpPost(API_URL);
+            httpPost.setHeader("Authorization", "Bearer " + API_KEY);
+            httpPost.setHeader("Content-Type", "application/json");
+
+            StringEntity entity = new StringEntity(
+                    mapper.writeValueAsString(rootNode),
+                    ContentType.APPLICATION_JSON
+            );
+            httpPost.setEntity(entity);
+
+            return httpClient.execute(httpPost, response -> {
+                String responseString = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                if (response.getStatusLine().getStatusCode() == 200) {
+                    return mapper.readTree(responseString)
+                            .path("choices").get(0)
+                            .path("message").path("content").asText();
+                } else {
+                    return "API Error: " + response.getStatusLine().getStatusCode() + " - " + responseString;
+                }
+            });
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Failed: " + e.getMessage();
+        }
     }
 }
