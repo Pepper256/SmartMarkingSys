@@ -1,7 +1,5 @@
 package entities;
 
-import jdk.vm.ci.code.site.Mark;
-
 import java.util.HashMap;
 
 public class MarkedStudentPaper extends StudentPaper{
@@ -11,14 +9,16 @@ public class MarkedStudentPaper extends StudentPaper{
     private HashMap<String, String> reasons;
 
     public MarkedStudentPaper(String id,
+                                String examPaperId,
                                 String subject,
+                                String examPaperId,
                                 HashMap<String, String> questions,
                                 HashMap<String, String> responses,
                                 String coordContent,
                                 HashMap<String, Boolean> correctness,
                                 String markedContent,
                               HashMap<String, String> reasons) {
-        super(id, subject, questions, responses, coordContent);
+        super(id, examPaperId, subject, questions, responses, coordContent);
         this.correctness = correctness;
         this.markedContent = markedContent;
     }
@@ -28,6 +28,7 @@ public class MarkedStudentPaper extends StudentPaper{
                               String markedContent,
                               HashMap<String, String> reasons) {
         super(studentPaper.getId(),
+                studentPaper.getExamPaperId(),
                 studentPaper.getSubject(),
                 studentPaper.getQuestions(),
                 studentPaper.getResponses(),

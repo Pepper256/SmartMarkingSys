@@ -13,6 +13,8 @@ public class AnswerPaper{
     private HashMap<String, String> questions;
     private HashMap<String, String> answers; // map questions to answers
 
+    public AnswerPaper() {}
+
     public AnswerPaper(String id,
                        String examPaperId,
                        String subject,
@@ -87,5 +89,21 @@ public class AnswerPaper{
 
     public void setExamPaperId(String examPaperId) {
         this.examPaperId = examPaperId;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        try {
+            AnswerPaper answerPaperObj = (AnswerPaper) obj;
+
+            return answerPaperObj.getId().equals(this.id) &&
+                    answerPaperObj.getQuestions().equals(this.questions) &&
+                    answerPaperObj.getSubject().equals(this.subject) &&
+                    answerPaperObj.getExamPaperId().equals(this.examPaperId) &&
+                    answerPaperObj.getAnswers().equals(this.answers);
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 }
