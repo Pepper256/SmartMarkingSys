@@ -128,7 +128,7 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
 
             // 构建 DashScope 规范的请求体
             JSONObject requestBody = new JSONObject();
-            requestBody.put("model", "qwen3-vl");
+            requestBody.put("model", "qwen3-vl-flash");
 
             JSONObject message = new JSONObject();
             message.put("role", "user");
