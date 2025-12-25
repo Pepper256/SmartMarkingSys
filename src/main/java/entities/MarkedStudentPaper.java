@@ -12,13 +12,14 @@ public class MarkedStudentPaper extends StudentPaper{
 
     public MarkedStudentPaper(String id,
                                 String subject,
+                                String examPaperId,
                                 HashMap<String, String> questions,
                                 HashMap<String, String> responses,
                                 String coordContent,
                                 HashMap<String, Boolean> correctness,
                                 String markedContent,
                               HashMap<String, String> reasons) {
-        super(id, subject, questions, responses, coordContent);
+        super(id, examPaperId, subject, questions, responses, coordContent);
         this.correctness = correctness;
         this.markedContent = markedContent;
     }
@@ -28,6 +29,7 @@ public class MarkedStudentPaper extends StudentPaper{
                               String markedContent,
                               HashMap<String, String> reasons) {
         super(studentPaper.getId(),
+                studentPaper.getExamPaperId(),
                 studentPaper.getSubject(),
                 studentPaper.getQuestions(),
                 studentPaper.getResponses(),
