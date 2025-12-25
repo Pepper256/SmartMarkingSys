@@ -1,7 +1,5 @@
 package entities;
 
-import jdk.vm.ci.code.site.Mark;
-
 import java.util.HashMap;
 
 public class MarkedStudentPaper extends StudentPaper{
