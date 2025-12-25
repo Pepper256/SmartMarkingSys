@@ -95,7 +95,7 @@ public class StudentPaper {
     public String toJsonString() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("id", this.getId());
-        jsonObject.put("examId", this.getExamPaperId());
+        jsonObject.put("examPaperId", this.getExamPaperId());
         jsonObject.put("subject", this.getSubject());
         jsonObject.put("questions", this.getQuestions());
         jsonObject.put("responses", this.getResponses());
