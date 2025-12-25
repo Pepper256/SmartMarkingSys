@@ -155,6 +155,27 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         }
     }
 
+    private HttpPost getHttpPost(String base64Image, String prompt) {
+        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
+        httpPost.setHeader("Content-Type", "application/json");
+
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "qwen3-vl-flash");
+
+        JSONObject message = new JSONObject();
+        message.put("role", "user");
+        JSONArray content = new JSONArray();
+        content.add(new JSONObject().fluentPut("text", prompt));
+        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+
+        message.put("content", content);
+        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+
+        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
+        return httpPost;
+    }
+
     // --- 以下为未变动的工具函数 ---
 
     private JSONObject assembleResults(String id, List<CompletableFuture<JSONObject>> futures, DocType docType) throws Exception {
@@ -183,27 +204,6 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
                 .getJSONObject("message").getJSONArray("content").getJSONObject(0).getString("text");
         String cleanJson = contentText.replaceAll("```json", "").replaceAll("```", "").trim();
         return JSON.parseObject(cleanJson);
-    }
-
-    private HttpPost getHttpPost(String base64Image, String prompt) {
-        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
-        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
-        httpPost.setHeader("Content-Type", "application/json");
-
-        JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "qwen3-vl-flash");
-
-        JSONObject message = new JSONObject();
-        message.put("role", "user");
-        JSONArray content = new JSONArray();
-        content.add(new JSONObject().fluentPut("text", prompt));
-        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
-
-        message.put("content", content);
-        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
-
-        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
-        return httpPost;
     }
 
     private String encodeImageToBase64(BufferedImage image) throws Exception {
