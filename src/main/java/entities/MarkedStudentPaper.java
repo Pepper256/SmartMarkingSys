@@ -11,6 +11,7 @@ public class MarkedStudentPaper extends StudentPaper{
     public MarkedStudentPaper(String id,
                                 String examPaperId,
                                 String subject,
+                                String examPaperId,
                                 HashMap<String, String> questions,
                                 HashMap<String, String> responses,
                                 String coordContent,

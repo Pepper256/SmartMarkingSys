@@ -2,6 +2,7 @@ package use_case.auto_marking;
 
 import app.Main;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,11 +19,13 @@ import org.apache.http.util.EntityUtils;
 import use_case.Constants;
 import use_case.dto.AutoMarkingInputData;
 import use_case.dto.AutoMarkingOutputData;
+import use_case.util.ThreadUtil;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
 
@@ -39,97 +42,133 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
     public void execute(AutoMarkingInputData inputData) {
         List<String> ids = inputData.getStudentPaperIds();
 
-        List<MarkedStudentPaper> markedPapers = new ArrayList<>();
-        List<String> markedContentWithCoords = new ArrayList<>();
-        for (String id : ids) {
-            StudentPaper studentPaper = dao.getStudentPaperById(id);
+        // 1. 并行批改试卷
+        List<CompletableFuture<MarkingResult>> futures = ids.stream()
+                .map(id -> CompletableFuture.supplyAsync(() -> processSinglePaper(id), ThreadUtil.getExecutor()))
+                .collect(Collectors.toList());
 
-            // 构建问题答案键值对字符串
-            HashMap<String, HashMap<String, String>> map = new HashMap<>();
-            for (String key : studentPaper.getQuestions().keySet()) {
-                HashMap<String, String> temp = new HashMap<String, String>();
-                temp.put("question", studentPaper.getQuestions().get(key));
-                temp.put("response", studentPaper.getResponses().get(key));
-                map.put(key, temp);
-            }
-            String content = JSON.toJSONString(map);
+        try {
+            // 2. 等待所有批改任务完成
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-            try {
-                String jsonWithMarkedContent = askDeepSeek(content + "\n" +studentPaper.getCoordContent());
-                JSONObject temp = JSON.parseObject(jsonWithMarkedContent);
-                JSONObject answerInfo = temp.getJSONObject("answerInfo");
+            List<MarkedStudentPaper> markedPapers = new ArrayList<>();
+            List<String> rawContents = new ArrayList<>();
 
-                HashMap<String, Boolean> correctness = new HashMap<>();
-                HashMap<String, String> reasons = new HashMap<>();
-                for (String key : answerInfo.keySet()) {
-                    correctness.put(key, answerInfo.getBoolean("marked"));
-                    reasons.put(key, answerInfo.getString("reason"));
+            for (CompletableFuture<MarkingResult> future : futures) {
+                MarkingResult result = future.get();
+                if (result != null) {
+                    markedPapers.add(result.markedPaper);
+                    rawContents.add(result.rawJson);
                 }
-
-
-                markedPapers.add(new MarkedStudentPaper(
-                        studentPaper,
-                        correctness,
-                        temp.getJSONObject("markWithCoords").toJSONString(),
-                        reasons)
-                );
-                markedContentWithCoords.add(jsonWithMarkedContent);
             }
-            catch (Exception e) {
-                outputBoundary.prepareFailView(new AutoMarkingOutputData(new ArrayList<String>()));
-            }
+
+            // 3. 持久化并返回
+            dao.storeMarkedPapers(markedPapers);
+            outputBoundary.prepareSuccessView(new AutoMarkingOutputData(rawContents));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            outputBoundary.prepareFailView(new AutoMarkingOutputData(new ArrayList<>()));
         }
-
-        dao.storeMarkedPapers(markedPapers);
-
-        outputBoundary.prepareSuccessView(new AutoMarkingOutputData(markedContentWithCoords));
     }
 
-    private String askDeepSeek(String content) throws Exception {
-        // 1. 在函数内部实例化 Jackson ObjectMapper
-        ObjectMapper mapper = new ObjectMapper();
+    /**
+     * 处理单份试卷的批改逻辑
+     */
+    private MarkingResult processSinglePaper(String id) {
+        try {
+            StudentPaper studentPaper = dao.getStudentPaperById(id);
+            if (studentPaper == null) return null;
 
-        // 2. 构建 JSON 请求体
-        ObjectNode rootNode = mapper.createObjectNode();
-        rootNode.put("model", "deepseek-chat");
-        rootNode.putArray("messages")
-                .addObject()
-                .put("role", "user")
-                .put("content", Constants.MARKING_PROMPT + content);
-        rootNode.put("stream", false);
+            // 构建批改请求内容：问题 + 学生回答 + OCR坐标参考
+            Map<String, Object> markContext = new HashMap<>();
+            markContext.put("questions", studentPaper.getQuestions());
+            markContext.put("responses", studentPaper.getResponses());
 
-        String jsonPayload = mapper.writeValueAsString(rootNode);
+            String promptPayload = JSON.toJSONString(markContext) + "\n【OCR坐标上下文】\n" + studentPaper.getCoordContent();
 
-        // 3. 在函数内部实例化 Apache HttpClient
-        // 使用 try-with-resources 确保 HttpClient 和 HttpResponse 自动关闭，防止连接泄露
+            // 调用通用的 Qwen 处理逻辑
+            String responseJsonStr = askQwen(promptPayload);
+            JSONObject root = JSON.parseObject(responseJsonStr);
+
+            // 解析批改详情
+            JSONObject answerInfo = root.getJSONObject("answerInfo");
+            HashMap<String, Boolean> correctness = new HashMap<>();
+            HashMap<String, String> reasons = new HashMap<>();
+
+            for (String key : answerInfo.keySet()) {
+                JSONObject detail = answerInfo.getJSONObject(key);
+                correctness.put(key, detail.getBoolean("marked"));
+                reasons.put(key, detail.getString("reason"));
+            }
+
+            // 封装结果
+            MarkedStudentPaper markedPaper = new MarkedStudentPaper(
+                    studentPaper,
+                    correctness,
+                    root.getJSONObject("markWithCoords").toJSONString(),
+                    reasons
+            );
+
+            return new MarkingResult(markedPaper, responseJsonStr);
+        } catch (Exception e) {
+            throw new RuntimeException("试卷 " + id + " 批改失败", e);
+        }
+    }
+
+    /**
+     * 调用 Qwen 模型进行文本推理（批改逻辑）
+     */
+    private String askQwen(String content) throws Exception {
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-
-            HttpPost httpPost = new HttpPost(Constants.DEEPSEEK_API_URL);
-
-            // 设置请求头
-            httpPost.setHeader("Authorization", "Bearer " + Main.loadDeepseekApiKey());
+            HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+            httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
             httpPost.setHeader("Content-Type", "application/json");
 
-            // 设置实体内容
-            httpPost.setEntity(new StringEntity(jsonPayload, ContentType.APPLICATION_JSON));
+            // 构建 DashScope 规范的请求体
+            JSONObject requestBody = new JSONObject();
+            requestBody.put("model", "qwen3-vl-flash");
 
-            // 4. 执行请求
-            try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
-                int statusCode = response.getStatusLine().getStatusCode();
-                String responseBody = EntityUtils.toString(response.getEntity());
+            JSONObject message = new JSONObject();
+            message.put("role", "user");
 
-                if (statusCode == 200) {
-                    // 5. 解析响应内容
-                    JsonNode responseJson = mapper.readTree(responseBody);
-                    return responseJson.path("choices")
-                            .get(0)
-                            .path("message")
-                            .path("content")
-                            .asText();
-                } else {
-                    throw new IOException("API 错误，状态码: " + statusCode + " 响应: " + responseBody);
+            JSONArray messagesContent = new JSONArray();
+            messagesContent.add(new JSONObject().fluentPut("text", Constants.MARKING_PROMPT + content));
+
+            message.put("content", messagesContent);
+            requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+
+            return httpClient.execute(httpPost, response -> {
+                String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                if (response.getStatusLine().getStatusCode() != 200) {
+                    throw new IOException("Qwen API Error: " + response.getStatusLine().getStatusCode() + " - " + body);
                 }
-            }
+
+                // 解析并清洗返回的 JSON 字符串
+                JSONObject resObj = JSON.parseObject(body);
+                String text = resObj.getJSONObject("output")
+                        .getJSONArray("choices")
+                        .getJSONObject(0)
+                        .getJSONObject("message")
+                        .getJSONArray("content")
+                        .getJSONObject(0)
+                        .getString("text");
+
+                return text.replaceAll("```json", "").replaceAll("```", "").trim();
+            });
+        }
+    }
+
+    /**
+     * 内部类用于承载多线程执行结果
+     */
+    private static class MarkingResult {
+        final MarkedStudentPaper markedPaper;
+        final String rawJson;
+
+        MarkingResult(MarkedStudentPaper markedPaper, String rawJson) {
+            this.markedPaper = markedPaper;
+            this.rawJson = rawJson;
         }
     }
 }
