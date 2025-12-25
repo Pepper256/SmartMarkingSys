@@ -105,6 +105,18 @@ public class StudentPaper {
 
     @Override
     public boolean equals(Object obj) {
+        try {
+            StudentPaper studentPaperObj = (StudentPaper) obj;
 
+            return studentPaperObj.getId().equals(this.id) &&
+                    studentPaperObj.getQuestions().equals(this.questions) &&
+                    studentPaperObj.getSubject().equals(this.subject) &&
+                    studentPaperObj.getCoordContent().equals(this.coordContent) &&
+                    studentPaperObj.getExamPaperId().equals(this.examPaperId) &&
+                    studentPaperObj.getResponses().equals(this.responses);
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 }
