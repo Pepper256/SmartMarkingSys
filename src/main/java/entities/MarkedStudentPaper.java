@@ -11,6 +11,7 @@ public class MarkedStudentPaper extends StudentPaper{
     private HashMap<String, String> reasons;
 
     public MarkedStudentPaper(String id,
+                                String examPaperId,
                                 String subject,
                                 HashMap<String, String> questions,
                                 HashMap<String, String> responses,
@@ -18,7 +19,7 @@ public class MarkedStudentPaper extends StudentPaper{
                                 HashMap<String, Boolean> correctness,
                                 String markedContent,
                               HashMap<String, String> reasons) {
-        super(id, subject, questions, responses, coordContent);
+        super(id, examPaperId, subject, questions, responses, coordContent);
         this.correctness = correctness;
         this.markedContent = markedContent;
     }
@@ -28,6 +29,7 @@ public class MarkedStudentPaper extends StudentPaper{
                               String markedContent,
                               HashMap<String, String> reasons) {
         super(studentPaper.getId(),
+                studentPaper.getExamPaperId(),
                 studentPaper.getSubject(),
                 studentPaper.getQuestions(),
                 studentPaper.getResponses(),
