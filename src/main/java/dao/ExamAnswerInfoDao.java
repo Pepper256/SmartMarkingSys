@@ -1,86 +1,116 @@
 package dao;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import entities.AnswerPaper;
 import entities.ExamPaper;
-import use_case.Constants;
 import use_case.upload_paper_answer.UploadPaperAnswerDataAccessInterface;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
+/**
+ * 负责存取“空白试卷(ExamPaper)”与“标准答案(AnswerPaper)”。
+ *
+ * 说明：当前 UploadPaperAnswerUseCase 只要求 storeExamAnswer(...)。
+ * 为了后续用例（如自动批改/报告）方便，这里也提供了常用查询方法。
+ */
 public class ExamAnswerInfoDao implements UploadPaperAnswerDataAccessInterface {
-
-    private static class Database {
-        private List<ExamPaper> examPapers;
-        private List<AnswerPaper> answerPapers;
-
-        public Database(List<ExamPaper> examPapers, List<AnswerPaper> answerPapers) {
-            this.examPapers = examPapers;
-            this.answerPapers = answerPapers;
-        }
-
-        public List<ExamPaper> getExamPapers() {
-            return examPapers;
-        }
-
-        public void setExamPapers(List<ExamPaper> examPapers) {
-            this.examPapers = examPapers;
-        }
-
-        public List<AnswerPaper> getAnswerPapers() {
-            return answerPapers;
-        }
-
-        public void setAnswerPapers(List<AnswerPaper> answerPapers) {
-            this.answerPapers = answerPapers;
-        }
-
-        public void addExamPaper(ExamPaper examPaper) {
-            this.examPapers.add(examPaper);
-        }
-
-        public void addAnswerPaper(AnswerPaper answerPaper) {
-            this.answerPapers.add(answerPaper);
-        }
-    }
 
     @Override
     public void storeExamAnswer(ExamPaper examPaper, AnswerPaper answerPaper) {
-        String examJson = examPaper.toJsonString();
-        String answerJson = answerPaper.toJsonString();
+        DatabaseManager.initSchemaIfNeeded();
 
-        String relativePath = Constants.DAO_PATH;
-        String jsonString = null;
+        String insertExam = "INSERT OR REPLACE INTO exam_paper (id, subject, answer_id, questions_json) VALUES (?, ?, ?, ?)";
+        String insertAnswer = "INSERT OR REPLACE INTO answer_paper (id, exam_paper_id, subject, questions_json, answers_json) VALUES (?, ?, ?, ?, ?)";
 
-        ObjectMapper mapper = new ObjectMapper();
+        try (Connection conn = DatabaseManager.getConnection()) {
+            conn.setAutoCommit(false);
 
-        try {
+            try (PreparedStatement psExam = conn.prepareStatement(insertExam);
+                 PreparedStatement psAns = conn.prepareStatement(insertAnswer)) {
 
-            Path path = Paths.get(relativePath);
+                psExam.setString(1, examPaper.getId());
+                psExam.setString(2, examPaper.getSubject());
+                psExam.setString(3, examPaper.getAnswerId());
+                psExam.setString(4, MapJsonUtil.toJson(examPaper.getQuestions()));
+                psExam.executeUpdate();
 
-            if (Files.notExists(path.getParent())) {
-                Files.createDirectories(path.getParent());
+                psAns.setString(1, answerPaper.getId());
+                psAns.setString(2, answerPaper.getExamPaperId());
+                psAns.setString(3, answerPaper.getSubject());
+                psAns.setString(4, MapJsonUtil.toJson(answerPaper.getQuestions()));
+                psAns.setString(5, MapJsonUtil.toJson(answerPaper.getAnswers()));
+                psAns.executeUpdate();
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
             }
+        } catch (SQLException e) {
+            throw new RuntimeException("写入试卷/答案失败: " + e.getMessage(), e);
+        }
+    }
 
-            Database db = mapper.readValue(new File(relativePath), Database.class);
-            db.addAnswerPaper(answerPaper);
-            db.addExamPaper(examPaper);
-            jsonString = mapper.writeValueAsString(db);
+    public ExamPaper findExamPaperById(String id) {
+        String sql = "SELECT id, subject, answer_id, questions_json FROM exam_paper WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return new ExamPaper(
+                        rs.getString("id"),
+                        rs.getString("subject"),
+                        MapJsonUtil.toStringMap(rs.getString("questions_json")),
+                        rs.getString("answer_id")
+                );
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询试卷失败: " + e.getMessage(), e);
+        }
+    }
 
-            Files.write(path,
-                    jsonString.getBytes(StandardCharsets.UTF_8));
+    public AnswerPaper findAnswerPaperById(String id) {
+        String sql = "SELECT id, exam_paper_id, subject, questions_json, answers_json FROM answer_paper WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return new AnswerPaper(
+                        rs.getString("id"),
+                        rs.getString("exam_paper_id"),
+                        rs.getString("subject"),
+                        MapJsonUtil.toStringMap(rs.getString("questions_json")),
+                        MapJsonUtil.toStringMap(rs.getString("answers_json"))
+                );
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询答案失败: " + e.getMessage(), e);
+        }
+    }
 
-            System.out.println("JSON 文件已成功保存至: " + path.toAbsolutePath());
-
-        } catch (IOException e) {
-            System.err.println("保存文件时出错: " + e.getMessage());
-            e.printStackTrace();
+    public AnswerPaper findAnswerByExamPaperId(String examPaperId) {
+        String sql = "SELECT id, exam_paper_id, subject, questions_json, answers_json FROM answer_paper WHERE exam_paper_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, examPaperId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return new AnswerPaper(
+                        rs.getString("id"),
+                        rs.getString("exam_paper_id"),
+                        rs.getString("subject"),
+                        MapJsonUtil.toStringMap(rs.getString("questions_json")),
+                        MapJsonUtil.toStringMap(rs.getString("answers_json"))
+                );
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("查询答案失败: " + e.getMessage(), e);
         }
     }
 }

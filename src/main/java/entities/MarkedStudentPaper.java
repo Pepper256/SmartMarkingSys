@@ -1,26 +1,30 @@
 package entities;
 
-import jdk.vm.ci.code.site.Mark;
-
 import java.util.HashMap;
 
-public class MarkedStudentPaper extends StudentPaper{
+/**
+ * 批改后的学生答卷。
+ * 继承 StudentPaper，并追加每题对错、错因、批注内容等信息。
+ */
+public class MarkedStudentPaper extends StudentPaper {
 
     private String markedContent;
     private HashMap<String, Boolean> correctness;
     private HashMap<String, String> reasons;
 
     public MarkedStudentPaper(String id,
-                                String subject,
-                                HashMap<String, String> questions,
-                                HashMap<String, String> responses,
-                                String coordContent,
-                                HashMap<String, Boolean> correctness,
-                                String markedContent,
+                              String examPaperId,
+                              String subject,
+                              HashMap<String, String> questions,
+                              HashMap<String, String> responses,
+                              String coordContent,
+                              HashMap<String, Boolean> correctness,
+                              String markedContent,
                               HashMap<String, String> reasons) {
-        super(id, subject, questions, responses, coordContent);
+        super(id, examPaperId, subject, questions, responses, coordContent);
         this.correctness = correctness;
         this.markedContent = markedContent;
+        this.reasons = reasons;
     }
 
     public MarkedStudentPaper(StudentPaper studentPaper,
@@ -28,6 +32,7 @@ public class MarkedStudentPaper extends StudentPaper{
                               String markedContent,
                               HashMap<String, String> reasons) {
         super(studentPaper.getId(),
+                studentPaper.getExamPaperId(),
                 studentPaper.getSubject(),
                 studentPaper.getQuestions(),
                 studentPaper.getResponses(),

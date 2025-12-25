@@ -5,6 +5,16 @@ public class Constants {
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
     public static final String DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
+    /**
+     * 数据库连接串：默认使用本地 SQLite 单文件数据库。
+     * 如需切换到 MySQL/PostgreSQL，请在这里替换 JDBC URL。
+     */
+    public static final String DB_URL = "jdbc:sqlite:./database/autograder.db";
+
+    /**
+     * 旧版 JSON 数据库路径（已弃用）。保留仅用于兼容历史代码。
+     */
+    @Deprecated
     public static final String DAO_PATH = "./src/main/resources/database/data.json";
 
     public static final String ANSWER_PROMPT = "你是一个高精度的 OCR 试卷识别助手。请分析图片并输出 JSON：" +
