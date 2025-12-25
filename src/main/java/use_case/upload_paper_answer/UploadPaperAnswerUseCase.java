@@ -4,11 +4,9 @@ import app.Main;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.org.apache.bcel.internal.Const;
 import entities.AnswerPaper;
 import entities.ExamPaper;
 import org.apache.http.client.methods.HttpPost;
@@ -199,7 +197,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         message.put("role", "user");
         JSONArray content = new JSONArray();
         content.add(new JSONObject().fluentPut("text", prompt));
-        content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
 
         message.put("content", content);
         requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
@@ -215,19 +213,13 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
-        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+//        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+        return Constants.TEST_OCR_RESPONSE;
     }
 
-    private static final String API_URL = "https://api.openai.com/v1/chat/completions";
-    private static final String API_KEY = "sk-xxxxxxxxxxxxxxxxxxxx";
-    private static final String MODEL_NAME = "gpt-4o"; // 必须使用支持视觉的模型
-
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    /**
-     * 输入图片，通过大模型进行识别解析
-     */
     public String getLLMResponseFromImage(BufferedImage image, String prompt) {
+        ObjectMapper mapper = new ObjectMapper();
+
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
 
             // 1. 将 BufferedImage 转换为 Base64 字符串
@@ -257,8 +249,8 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
             imageUrl.put("url", "data:image/png;base64," + base64Image);
 
             // 3. 发送请求
-            HttpPost httpPost = new HttpPost(API_URL);
-            httpPost.setHeader("Authorization", "Bearer " + API_KEY);
+            HttpPost httpPost = new HttpPost(Constants.OCR_API_URL);
+            httpPost.setHeader("Authorization", "Bearer " + Constants.OCR_API_KEY);
             httpPost.setHeader("Content-Type", "application/json");
 
             StringEntity entity = new StringEntity(
