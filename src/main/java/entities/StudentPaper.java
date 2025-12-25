@@ -14,6 +14,8 @@ public class StudentPaper {
     private String subject;
     private String coordContent;
 
+    public StudentPaper() {}
+
     public StudentPaper(String id,
                         String examPaperId,
                         String subject,
@@ -99,5 +101,10 @@ public class StudentPaper {
         jsonObject.put("responses", this.getResponses());
         jsonObject.put("coordContent", this.getCoordContent());
         return jsonObject.toJSONString();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+
     }
 }
