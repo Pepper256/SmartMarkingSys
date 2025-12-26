@@ -87,11 +87,13 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
                 Map<String, String> questionAndResponse = new HashMap<>();
                 try {
                     String response = studentPaper.getResponses().get(key);
-                    questionAndResponse.put(question, response);
+                    questionAndResponse.put("question", question);
+                    questionAndResponse.put("response", response);
                     markContext.put(key, questionAndResponse);
                 }
                 catch (Exception e) {
-                    questionAndResponse.put(question, "");
+                    questionAndResponse.put("question", question);
+                    questionAndResponse.put("response", "");
                 }
                 markContext.put(key, questionAndResponse);
             }
@@ -99,7 +101,9 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
             String promptPayload = "json1 = " +
                     JSON.toJSONString(markContext) +
                     "\n【OCR坐标上下文】\njson2 = " +
-                    studentPaper.getCoordContent();
+                    studentPaper.getCoordContent() +
+                    "json3=" +
+                    dao.getAnswerPaperByExamPaperId(studentPaper.getExamPaperId()).getAnswers();
 
             // 调用通用的 Qwen 处理逻辑
             String responseJsonStr = askQwen(promptPayload);
