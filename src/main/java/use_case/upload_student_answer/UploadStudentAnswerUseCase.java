@@ -159,23 +159,23 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         String combinedPrompt = Constants.STUDENT_PROMPT + "\n【参考 OCR 识别结果】\n" + ocrContent;
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
-            httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
-            httpPost.setHeader("Content-Type", "application/json");
-
-            // 构建符合 DashScope 规范的请求体
-            JSONObject requestBody = new JSONObject();
-            requestBody.put("model", "qwen3-vl-flash");
-
-            JSONObject message = new JSONObject();
-            message.put("role", "user");
-
-            JSONArray content = new JSONArray();
-            content.add(new JSONObject().fluentPut("text", combinedPrompt));
-//            content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64));
-
-            message.put("content", content);
-            requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+            HttpPost httpPost = getHttpPost(base64, combinedPrompt);
+//            httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
+//            httpPost.setHeader("Content-Type", "application/json");
+//
+//            // 构建符合 DashScope 规范的请求体
+//            JSONObject requestBody = new JSONObject();
+//            requestBody.put("model", "qwen3-vl-flash");
+//
+//            JSONObject message = new JSONObject();
+//            message.put("role", "user");
+//
+//            JSONArray content = new JSONArray();
+//            content.add(new JSONObject().fluentPut("text", combinedPrompt));
+////            content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64));
+//
+//            message.put("content", content);
+//            requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
 
             String responseContent = httpClient.execute(httpPost, response -> {
                 if (response.getStatusLine().getStatusCode() != 200) {
@@ -186,6 +186,40 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
             return parseQwenResponse(responseContent);
         }
+    }
+
+//    private JSONObject callQwenVlApi(String id, String base64, String ocrContent, String type) throws Exception {
+//        // 构造 Prompt，告诉模型结合 OCR 文本进行结构化
+//        String basePrompt = "answer".equals(type) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
+//        String combinedPrompt = basePrompt + "\n\n以下是该图片的 OCR 识别结果，供参考：\n" + ocrContent;
+//
+//        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+//            HttpPost httpPost = getHttpPost(base64, combinedPrompt);
+//            String responseContent = httpClient.execute(httpPost, response ->
+//                    EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8));
+//            return parseQwenResponse(responseContent);
+//        }
+//    }
+
+    private HttpPost getHttpPost(String base64Image, String prompt) {
+        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
+        httpPost.setHeader("Content-Type", "application/json");
+
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "qwen3-vl-flash");
+
+        JSONObject message = new JSONObject();
+        message.put("role", "user");
+        JSONArray content = new JSONArray();
+        content.add(new JSONObject().fluentPut("text", prompt));
+        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+
+        message.put("content", content);
+        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+
+        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
+        return httpPost;
     }
 
     /**
@@ -211,20 +245,31 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     private JSONObject mergeStudentResults(List<CompletableFuture<JSONObject>> futures) throws Exception {
         JSONObject root = new JSONObject(new LinkedHashMap<>());
         JSONObject allAnswers = new JSONObject(new LinkedHashMap<>());
+        JSONObject allQuestions = new JSONObject(new LinkedHashMap<>());
         StringBuilder ocrLog = new StringBuilder();
+        String subject = "";
+
 
         for (CompletableFuture<JSONObject> future : futures) {
             JSONObject pageData = future.get();
-            if (pageData.containsKey("answers")) {
-                allAnswers.putAll(pageData.getJSONObject("answers"));
+            if (pageData.containsKey("responses")) {
+                allAnswers.putAll(pageData.getJSONObject("responses"));
             }
             if (pageData.containsKey("coordContent")) {
                 ocrLog.append(pageData.getString("coordContent")).append("\n");
             }
+            if(pageData.containsKey("subject")) {
+                subject = pageData.getString("subject");
+            }
+            if(pageData.containsKey("questions")) {
+                allQuestions.putAll(pageData.getJSONObject("questions"));
+            }
         }
 
-        root.put("answers", allAnswers);
+        root.put("responses", allAnswers);
         root.put("coordContent", ocrLog.toString());
+        root.put("subject", subject);
+        root.put("questions", allQuestions);
         return root;
     }
 
@@ -235,6 +280,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
+        // TODO
 //        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
         return Constants.TEST_OCR_RESPONSE;
     }
