@@ -16,8 +16,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
+import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import use_case.Constants;
@@ -88,24 +87,39 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
 
         if ("pdf".equals(extension)) {
-            // 获取总页数
-            try (PDDocument metaDoc = Loader.loadPDF(file)) {
-                int pageCount = metaDoc.getNumberOfPages();
-                for (int i = 0; i < pageCount; i++) {
-                    final int pageIdx = i;
-                    // 并行处理每一页
-                    futures.add(CompletableFuture.supplyAsync(() -> {
-                        try (RandomAccessReadBufferedFile raFile = new RandomAccessReadBufferedFile(file);
-                             PDDocument document = Loader.loadPDF(raFile)) {
+            int pageCount;
+            // 1. 获取总页数 (PDFBox 2.x 直接使用 PDDocument.load)
+            try (PDDocument metaDoc = PDDocument.load(file)) {
+                pageCount = metaDoc.getNumberOfPages();
+            }
 
-                            PDFRenderer renderer = new PDFRenderer(document);
-                            BufferedImage image = renderer.renderImageWithDPI(pageIdx, 144);
+            for (int i = 0; i < pageCount; i++) {
+                final int pageIdx = i;
+                futures.add(CompletableFuture.supplyAsync(() -> {
+                    // 2. 针对每一页，重新加载文档。
+                    // 在 2.x 中，MemoryUsageSetting.setupTempFileOnly() 能有效防止大文件撑爆内存
+                    try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
+
+                        PDFRenderer renderer = new PDFRenderer(document);
+
+                        // 3. 2.x 支持 renderImageWithDPI，参数与 3.x 基本一致
+                        BufferedImage image = renderer.renderImageWithDPI(pageIdx, 144);
+
+                        try {
+                            if (image == null) throw new RuntimeException("渲染结果为空");
+
                             return processSinglePage(image, studentPaperId);
-                        } catch (Exception e) {
-                            throw new RuntimeException("处理第 " + pageIdx + " 页失败", e);
+                        } finally {
+                            // 显式回收图片内存，防止堆外内存溢出
+                            if (image != null) {
+                                image.flush();
+                            }
                         }
-                    }, ThreadUtil.getExecutor()));
-                }
+                    } catch (Exception e) {
+                        System.out.println("处理第 " + pageIdx + " 页失败");
+                        throw new RuntimeException("处理第 " + pageIdx + " 页失败", e);
+                    }
+                }, ThreadUtil.getExecutor()));
             }
         } else if ("png".equals(extension) || "jpg".equals(extension)) {
             BufferedImage image = ImageIO.read(file);
