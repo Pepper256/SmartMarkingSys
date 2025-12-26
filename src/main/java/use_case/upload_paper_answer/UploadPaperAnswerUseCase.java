@@ -15,8 +15,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import javax.imageio.ImageIO;
@@ -98,25 +96,28 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
         if ("pdf".equals(extension)) {
             int pageCount;
-            try (PDDocument metaDoc = Loader.loadPDF(file)) {
+            // PDFBox 2.x 使用 PDDocument.load 静态方法
+            try (PDDocument metaDoc = PDDocument.load(file)) {
                 pageCount = metaDoc.getNumberOfPages();
             }
 
             for (int i = 0; i < pageCount; i++) {
                 final int pageIdx = i;
                 futures.add(CompletableFuture.supplyAsync(() -> {
-                    try (RandomAccessReadBufferedFile raFile = new RandomAccessReadBufferedFile(file);
-                         PDDocument document = Loader.loadPDF(raFile)) {
+                    // PDFBox 2.x 不使用 Loader，直接通过 PDDocument.load 加载
+                    // 如果为了性能考虑，可以使用新的文件句柄或 byte[]
+                    try (PDDocument document = PDDocument.load(file)) {
 
                         PDFRenderer renderer = new PDFRenderer(document);
+                        // renderImageWithDPI 在 2.x 中依然可用
                         BufferedImage image = renderer.renderImageWithDPI(pageIdx, 144);
+
                         try {
                             if (image == null) throw new RuntimeException("渲染为空");
 
-                            // --- 核心改动：先执行 OCR ---
+                            // --- 核心逻辑 ---
                             String ocrResult = ocrProcess(image);
 
-                            // 将 OCR 结果作为上下文传给大模型
                             return callQwenVlApi(docId, encodeImageToBase64(image), ocrResult, docType.apiType);
                         } finally {
                             if (image != null) image.flush();
