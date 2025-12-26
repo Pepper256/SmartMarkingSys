@@ -337,7 +337,7 @@ public class AutoMarkingUseCaseTest {
 
         @Override
         public void storeMarkedPapers(List<MarkedStudentPaper> studentPapers) {
-            System.out.println(studentPapers.toString());
+            System.out.println(studentPapers.get(0).toJsonString());
             System.out.println("storing success");
         }
 

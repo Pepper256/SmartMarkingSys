@@ -124,14 +124,35 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
             MarkedStudentPaper markedPaper = new MarkedStudentPaper(
                     studentPaper,
                     correctness,
-                    root.getJSONObject("markWithCoords").toJSONString(),
+                    root.getJSONArray("markWithCoords").toJSONString(),
                     reasons
             );
 
-            return new MarkingResult(markedPaper, root.getJSONObject("markWithCoords").toJSONString());
+            return new MarkingResult(markedPaper, root.getJSONArray("markWithCoords").toJSONString());
         } catch (Exception e) {
             throw new RuntimeException("试卷 " + id + " 批改失败", e);
         }
+    }
+
+    private HttpPost getHttpPost(String prompt) {
+        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
+        httpPost.setHeader("Content-Type", "application/json");
+
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "qwen3-vl-flash");
+
+        JSONObject message = new JSONObject();
+        message.put("role", "user");
+        JSONArray content = new JSONArray();
+        content.add(new JSONObject().fluentPut("text", prompt));
+        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+
+        message.put("content", content);
+        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+
+        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
+        return httpPost;
     }
 
     /**
@@ -139,22 +160,7 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
      */
     private String askQwen(String content) throws Exception {
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
-            httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
-            httpPost.setHeader("Content-Type", "application/json");
-
-            // 构建 DashScope 规范的请求体
-            JSONObject requestBody = new JSONObject();
-            requestBody.put("model", "qwen3-vl-flash");
-
-            JSONObject message = new JSONObject();
-            message.put("role", "user");
-
-            JSONArray messagesContent = new JSONArray();
-            messagesContent.add(new JSONObject().fluentPut("text", Constants.MARKING_PROMPT + content));
-
-            message.put("content", messagesContent);
-            requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+            HttpPost httpPost = getHttpPost(Constants.MARKING_PROMPT + content);
 
             return httpClient.execute(httpPost, response -> {
                 String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
