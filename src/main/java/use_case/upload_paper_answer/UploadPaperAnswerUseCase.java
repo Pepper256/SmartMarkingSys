@@ -213,6 +213,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
+        // TODO
 //        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
         return Constants.TEST_OCR_RESPONSE;
     }
