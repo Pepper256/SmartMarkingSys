@@ -14,10 +14,8 @@ import use_case.dto.ExportReportOutputData;
 
 import org.jsoup.nodes.Document;
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.UUID;
+
+import use_case.Constants;
 
 public class ExportReportUseCase implements ExportReportInputBoundary{
 
@@ -45,7 +43,7 @@ public class ExportReportUseCase implements ExportReportInputBoundary{
             String fileName = "report_" + reportId + ".pdf";
 
             // 3. 执行导出
-            exportMarkdownToPdf(report.getContent(), fileName);
+            convertMarkdownToPdf(report.getContent(), Constants.DOWNLOAD_PATH + "/" + fileName);
 
             // 4. 只有执行成功才进入成功视图
             outputBoundary.prepareSuccessView(new ExportReportOutputData());
@@ -57,76 +55,42 @@ public class ExportReportUseCase implements ExportReportInputBoundary{
         }
     }
 
-    /**
-     * 将 Markdown 字符串转换并保存为 PDF 文件
-     * @param markdownContent Markdown 源码
-     * @param fileName 带后缀的文件名
-     * @throws Exception 将异常抛给上层统一处理
-     */
-    public void exportMarkdownToPdf(String markdownContent, String fileName) throws Exception {
-        Path downloadDir = Paths.get(Constants.DOWNLOAD_PATH);
-        if (!Files.exists(downloadDir)) Files.createDirectories(downloadDir);
-        String outputPath = downloadDir.resolve(fileName).toString();
-
-        // 1. Markdown -> HTML
+    public void convertMarkdownToPdf(String markdownContent, String destPath) throws Exception {
+        // 1. Flexmark: Markdown -> HTML
         MutableDataSet options = new MutableDataSet();
-        String htmlBody = HtmlRenderer.builder(options).build().render(Parser.builder(options).build().parse(markdownContent));
+        Parser parser = Parser.builder(options).build();
+        HtmlRenderer renderer = HtmlRenderer.builder(options).build();
+        String rawHtml = renderer.render(parser.parse(markdownContent));
 
-        // 2. 构造 HTML (注意：font-family 必须是没有任何引号的纯单词，或严格匹配)
-        String fullHtml = """
-            <!DOCTYPE html>
-            <html lang="zh">
-            <head>
-                <meta charset="UTF-8" />
-                <style>
-                    /* 暴力覆盖：强制所有元素使用我们注册的名为 MyCustomFont 的字体 */
-                    * { 
-                        font-family: MyCustomFont !important; 
-                        -fs-pdf-font-embed: embed;
-                        -fs-pdf-font-encoding: Identity-H;
-                    }
-                    body { padding: 30px; font-size: 14px; }
-                </style>
-            </head>
-            <body>
-                %s
-            </body>
-            </html>
-            """.formatted(htmlBody);
+        // 2. 注入 CSS 样式，确保 HTML 使用我们注册的字体
+        String processedHtml = "<html><head><style>" +
+                "body { font-family: '" + Constants.FONT_FAMILY_NAME + "', sans-serif; }" +
+                "</style></head><body>" +
+                rawHtml +
+                "</body></html>";
 
-        // 3. Jsoup 规范化 (防止标签未闭合导致文件损坏)
-        org.jsoup.nodes.Document doc = Jsoup.parse(fullHtml, "UTF-8");
-        doc.outputSettings().syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml);
-        doc.outputSettings().escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml);
-        String xhtml = doc.html();
-
-        // 4. 读取字体 (确保是真正的 .ttf 文件，不是改名的 .ttc)
-        byte[] fontBytes;
-        try (InputStream is = this.getClass().getClassLoader().getResourceAsStream("fonts/simsun.ttf")) {
-            if (is == null) throw new FileNotFoundException("未找到字体文件");
-            fontBytes = is.readAllBytes();
-        }
-
-        // 5. 渲染 PDF (核心：关闭 FastMode，手动指定编码)
-        try (OutputStream os = new FileOutputStream(outputPath)) {
+        // 3. OpenHTMLtoPDF: HTML -> PDF
+        try (OutputStream os = new FileOutputStream(destPath)) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
+            builder.useFastMode();
 
+            // --- 解决中文乱码：从 Resources 加载字体 ---
             builder.useFont(new FSSupplier<InputStream>() {
                 @Override
                 public InputStream supply() {
-                    return this.getClass().getClassLoader().getResourceAsStream("fonts/simsun.ttf");
+                    // 使用类加载器读取 resources 下的文件
+                    InputStream is = ExportReportUseCase.class.getResourceAsStream(Constants.FONT_RESOURCE_PATH);
+                    if (is == null) {
+                        throw new RuntimeException("找不到字体文件: " + Constants.FONT_RESOURCE_PATH);
+                    }
+                    return is;
                 }
-            }, "MyCustomFont", 400, BaseRendererBuilder.FontStyle.NORMAL, true);
+            }, Constants.FONT_FAMILY_NAME);
+            // ---------------------------------------
 
-            // 关键点 B: 不要使用 builder.useFastMode(); (它有时会导致编码映射失效)
-
-            builder.withHtmlContent(xhtml, new File(".").toURI().toURL().toString());
+            builder.withHtmlContent(processedHtml, null);
             builder.toStream(os);
             builder.run();
-            os.flush();
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
         }
     }
 }

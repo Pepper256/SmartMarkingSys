@@ -53,4 +53,7 @@ public class Constants {
             "    - All layout elements must be sorted according to human reading order.\n" +
             "\n" +
             "5. Final Output: The entire output must be a single JSON object.";
+
+    public static final String FONT_RESOURCE_PATH = "/fonts/simsun.ttf";
+    public static final String FONT_FAMILY_NAME = "SimSun";
 }
