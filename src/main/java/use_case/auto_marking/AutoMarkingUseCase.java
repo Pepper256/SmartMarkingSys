@@ -82,10 +82,24 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
 
             // 构建批改请求内容：问题 + 学生回答 + OCR坐标参考
             Map<String, Object> markContext = new HashMap<>();
-            markContext.put("questions", studentPaper.getQuestions());
-            markContext.put("responses", studentPaper.getResponses());
+            for (String key : studentPaper.getQuestions().keySet()) {
+                String question = studentPaper.getQuestions().get(key);
+                Map<String, String> questionAndResponse = new HashMap<>();
+                try {
+                    String response = studentPaper.getResponses().get(key);
+                    questionAndResponse.put(question, response);
+                    markContext.put(key, questionAndResponse);
+                }
+                catch (Exception e) {
+                    questionAndResponse.put(question, "");
+                }
+                markContext.put(key, questionAndResponse);
+            }
 
-            String promptPayload = JSON.toJSONString(markContext) + "\n【OCR坐标上下文】\n" + studentPaper.getCoordContent();
+            String promptPayload = "json1 = " +
+                    JSON.toJSONString(markContext) +
+                    "\n【OCR坐标上下文】\njson2 = " +
+                    studentPaper.getCoordContent();
 
             // 调用通用的 Qwen 处理逻辑
             String responseJsonStr = askQwen(promptPayload);
@@ -98,7 +112,7 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
 
             for (String key : answerInfo.keySet()) {
                 JSONObject detail = answerInfo.getJSONObject(key);
-                correctness.put(key, detail.getBoolean("marked"));
+                correctness.put(key, detail.getBoolean("correctness"));
                 reasons.put(key, detail.getString("reason"));
             }
 
@@ -110,7 +124,7 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
                     reasons
             );
 
-            return new MarkingResult(markedPaper, responseJsonStr);
+            return new MarkingResult(markedPaper, root.getJSONObject("markWithCoords").toJSONString());
         } catch (Exception e) {
             throw new RuntimeException("试卷 " + id + " 批改失败", e);
         }

@@ -5,13 +5,12 @@ import java.util.HashMap;
 public class MarkedStudentPaper extends StudentPaper{
 
     private String markedContent;
-    private HashMap<String, Boolean> correctness;
+    private HashMap<String, Boolean> correctness; // question to correctness map
     private HashMap<String, String> reasons;
 
     public MarkedStudentPaper(String id,
                                 String examPaperId,
                                 String subject,
-                                String examPaperId,
                                 HashMap<String, String> questions,
                                 HashMap<String, String> responses,
                                 String coordContent,
@@ -21,6 +20,7 @@ public class MarkedStudentPaper extends StudentPaper{
         super(id, examPaperId, subject, questions, responses, coordContent);
         this.correctness = correctness;
         this.markedContent = markedContent;
+        this.reasons = reasons;
     }
 
     public MarkedStudentPaper(StudentPaper studentPaper,
