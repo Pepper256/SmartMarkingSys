@@ -12,14 +12,12 @@ import use_case.upload_paper_answer.UploadPaperAnswerUseCase;
 
 public class UploadPaperAnswerUseCaseTest {
 
-    private String apikey;
     private UploadPaperAnswerUseCase useCase;
     private final UploadPaperAnswerPresenter presenter = new UploadPaperAnswerPresenter();
     private final MockDao dao = new MockDao();
 
     @BeforeEach
     void setup() {
-        apikey = Main.loadQwenApiKey();
         useCase = new UploadPaperAnswerUseCase(presenter, dao);
 
     }
