@@ -68,3 +68,24 @@
    (2) 用户指定保存路径
 
    (3) 系统生成报告的pdf文件，并保存到指定的路径
+
+## 项目依赖：
+   
+   1. org.junit.jupiter junit-jupiter 5.10.2
+   2. org.apache.pdfbox pdfbox 2.0.35
+   3. com.fasterxml.jackson.core jackson-databind 2.15.2
+   4. com.alibaba fastjson 1.2.83
+   5. org.apache.httpcomponents httpclient 4.5.13
+   6. com.vladsch.flexmark flexmark-all 0.64.8
+   7. com.openhtmltopdf openhtmltopdf-core 1.0.10
+   8. com.openhtmltopdf openhtmltopdf-pdfbox 1.0.10
+   9. org.jsoup jsoup 1.15.4
+
+   详情见pom.xml
+
+## 补充说明
+
+   1. 使用该程序请在src/main/resources目录下创建qwen.api.key字段，其值为
+阿里巴巴百炼大模型服务平台的apikey
+   2. resources目录下提供test.pdf用于测试需求
+   3. 该程序使用dots.ocr作为ocr服务，请在本地启动dots.ocr的vllm后端，详见docs/OCR.md
