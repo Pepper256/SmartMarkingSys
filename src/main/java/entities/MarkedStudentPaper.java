@@ -1,11 +1,14 @@
 package entities;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+
 import java.util.HashMap;
 
 public class MarkedStudentPaper extends StudentPaper{
 
     private String markedContent;
-    private HashMap<String, Boolean> correctness;
+    private HashMap<String, Boolean> correctness; // question to correctness map
     private HashMap<String, String> reasons;
 
     public MarkedStudentPaper(String id,
@@ -20,6 +23,7 @@ public class MarkedStudentPaper extends StudentPaper{
         super(id, examPaperId, subject, questions, responses, coordContent);
         this.correctness = correctness;
         this.markedContent = markedContent;
+        this.reasons = reasons;
     }
 
     public MarkedStudentPaper(StudentPaper studentPaper,
@@ -59,5 +63,13 @@ public class MarkedStudentPaper extends StudentPaper{
 
     public void setReasons(HashMap<String, String> reasons) {
         this.reasons = reasons;
+    }
+
+    public String toJsonString() {
+        JSONObject temp = JSON.parseObject(super.toJsonString());
+        temp.put("correctness", this.correctness);
+        temp.put("markedContent", this.markedContent);
+        temp.put("reasons", this.reasons);
+        return temp.toJSONString();
     }
 }
