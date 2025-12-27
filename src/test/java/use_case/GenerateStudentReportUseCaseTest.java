@@ -1,11 +1,11 @@
 package use_case;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import entities.MarkedStudentPaper;
 import entities.Report;
 import interface_adapter.generate_student_report.GenerateStudentReportPresenter;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 import use_case.dto.GenerateStudentReportInputData;
 import use_case.generate_student_report.GenerateStudentReportDataAccessInterface;
 import use_case.generate_student_report.GenerateStudentReportUseCase;
@@ -22,7 +22,6 @@ public class GenerateStudentReportUseCaseTest {
     }
 
     @Test
-    @Disabled("Integration test: requires config.properties API keys")
     public void GenerateStudentReportUseCaseApiTest() {
         useCase.execute(new GenerateStudentReportInputData("1"));
     }
