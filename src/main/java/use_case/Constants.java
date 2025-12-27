@@ -34,7 +34,7 @@ public class Constants {
             "\"correctness\":\"true或false，代表该题正确性。\"," +
             "\"reason\":\"如果该题正确，则值为空，如果该题错误，则分析错误原因并将分析出的错因作为该字段的值。\"}}," +
             "\"markWithCoords\":json2，保持该json格式不变，在列表的每一项可能为学生回答的json对象内添加新的字段，\"correctness\":true或false，代表该题正确性。" +
-            "}，若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
+            "}，若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增。在json的任何部位，不要出现json1，json2和json3的字样";
 
     public static final String DOWNLOAD_PATH = Paths.get(System.getProperty("user.home"), "Downloads").toString();
     public static final String OCR_PROMPT = "Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.\n" +
