@@ -78,7 +78,7 @@ public class ApiUtil {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpPost httpPost = new HttpPost(Constants.OCR_API_URL);
-            httpPost.setHeader("Authorization", "Bearer " + "0");
+            httpPost.setHeader("Authorization", "Bearer " + Constants.OCR_API_KEY);
             httpPost.setHeader("Content-Type", "application/json");
 
             // --- 构建 JSON Payload ---

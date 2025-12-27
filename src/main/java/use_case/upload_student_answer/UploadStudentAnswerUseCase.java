@@ -245,74 +245,8 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         }
     }
 
-    private String encodeImageToBase64(BufferedImage image) throws Exception {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(image, "png", baos);
-        return Base64.getEncoder().encodeToString(baos.toByteArray());
-    }
-
     private String ocrProcess(BufferedImage image) throws Exception {
-        // TODO
         return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
 //        return Constants.TEST_OCR_RESPONSE;
-    }
-
-    public String getLLMResponseFromImage(BufferedImage image, String prompt) {
-        ObjectMapper mapper = new ObjectMapper();
-
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-
-            // 1. 将 BufferedImage 转换为 Base64 字符串
-            String base64Image = encodeImageToBase64(image);
-
-            // 2. 构造请求体 (OpenAI Vision 格式)
-            ObjectNode rootNode = mapper.createObjectNode();
-            rootNode.put("model", Constants.OCR_MODEL_NAME);
-
-            ArrayNode messagesArray = rootNode.putArray("messages");
-            ObjectNode userMessage = messagesArray.addObject();
-            userMessage.put("role", "user");
-
-            // 多模态 content 是一个数组
-            ArrayNode contentArray = userMessage.putArray("content");
-
-            // 文本部分
-            ObjectNode textContent = contentArray.addObject();
-            textContent.put("type", "text");
-            textContent.put("text", prompt);
-
-            // 图片部分
-            ObjectNode imageContent = contentArray.addObject();
-            imageContent.put("type", "image_url");
-            ObjectNode imageUrl = imageContent.putObject("image_url");
-            // 格式必须为 data:image/png;base64,{base64_data}
-            imageUrl.put("url", "data:image/png;base64," + base64Image);
-
-            // 3. 发送请求
-            HttpPost httpPost = new HttpPost(Constants.OCR_API_URL);
-            httpPost.setHeader("Authorization", "Bearer " + Constants.OCR_API_KEY);
-            httpPost.setHeader("Content-Type", "application/json");
-
-            StringEntity entity = new StringEntity(
-                    mapper.writeValueAsString(rootNode),
-                    ContentType.APPLICATION_JSON
-            );
-            httpPost.setEntity(entity);
-
-            return httpClient.execute(httpPost, response -> {
-                String responseString = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                if (response.getStatusLine().getStatusCode() == 200) {
-                    return mapper.readTree(responseString)
-                            .path("choices").get(0)
-                            .path("message").path("content").asText();
-                } else {
-                    return "API Error: " + response.getStatusLine().getStatusCode() + " - " + responseString;
-                }
-            });
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "Failed: " + e.getMessage();
-        }
     }
 }
