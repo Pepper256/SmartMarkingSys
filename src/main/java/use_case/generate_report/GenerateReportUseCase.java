@@ -62,7 +62,7 @@ public class GenerateReportUseCase implements GenerateReportInputBoundary{
             Report report = new Report(
                     "report_" + UUID.randomUUID().toString(),
                     examPaperId,
-                    "",
+                    null,
                     generatedReport
             );
             dao.storeReport(report);
