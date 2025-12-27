@@ -9,5 +9,5 @@ public interface GenerateStudentReportDataAccessInterface {
 
     void storeReport(Report report);
 
-    MarkedStudentPaper getMarkedStudentPaperById(String MarkedStudentPaper);
+    MarkedStudentPaper getMarkedStudentPaperById(String markedStudentPaperId);
 }
