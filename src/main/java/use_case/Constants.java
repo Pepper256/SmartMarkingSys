@@ -9,7 +9,13 @@ public class Constants {
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
     public static final String OCR_API_URL = "http://localhost:8000/v1/chat/completions";
 
-    public static final String DAO_PATH = "./src/main/resources/database/data.json";
+    /**
+     * SQLite database file path.
+     *
+     * NOTE: Do NOT put a writable database under src/main/resources.
+     * Resources may become read-only after packaging.
+     */
+    public static final String SQLITE_DB_PATH = "./database/smartmark.db";
 
     public static final String OCR_MODEL_NAME = "rednote-hilab/dots.ocr";
     public static final String OCR_API_KEY = "random666ydbyl";

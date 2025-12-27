@@ -6,7 +6,7 @@ import java.util.Properties;
 public class Main {
 
     public static void main(String[] args) {
-        System.out.println("Hello world");
+
     }
 
     public static String loadQwenApiKey() {
@@ -25,4 +25,5 @@ public class Main {
             throw new RuntimeException("Failed to load API key: " + e.getMessage(), e);
         }
     }
+
 }

@@ -1,10 +1,10 @@
 package use_case;
 
-import entities.Report;
-import interface_adapter.export_report.ExportReportPresenter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import use_case.auto_marking.AutoMarkingDataAccessInterface;
+
+import entities.Report;
+import interface_adapter.export_report.ExportReportPresenter;
 import use_case.dto.ExportReportInputData;
 import use_case.export_report.ExportReportDataAccessInterface;
 import use_case.export_report.ExportReportUseCase;

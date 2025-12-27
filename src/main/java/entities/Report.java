@@ -12,6 +12,7 @@ public class Report {
     public Report(String id, String examPaperId, String studentPaperId, String content) {
         this.id = id;
         this.examPaperId = examPaperId;
+        this.studentPaperId = studentPaperId;
         this.content = content;
     }
 
