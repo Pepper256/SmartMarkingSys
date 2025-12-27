@@ -1,20 +1,21 @@
 package use_case.export_report;
 
+import com.openhtmltopdf.extend.FSSupplier;
+import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 import entities.Report;
+import org.jsoup.Jsoup;
 import use_case.Constants;
 import use_case.dto.ExportReportInputData;
 import use_case.dto.ExportReportOutputData;
 
-import java.io.FileOutputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.UUID;
+import org.jsoup.nodes.Document;
+import java.io.*;
+
+import use_case.Constants;
 
 public class ExportReportUseCase implements ExportReportInputBoundary{
 
@@ -42,7 +43,7 @@ public class ExportReportUseCase implements ExportReportInputBoundary{
             String fileName = "report_" + reportId + ".pdf";
 
             // 3. 执行导出
-            exportMarkdownToPdf(report.getContent(), fileName);
+            convertMarkdownToPdf(report.getContent(), Constants.DOWNLOAD_PATH + "/" + fileName);
 
             // 4. 只有执行成功才进入成功视图
             outputBoundary.prepareSuccessView(new ExportReportOutputData());
@@ -54,50 +55,42 @@ public class ExportReportUseCase implements ExportReportInputBoundary{
         }
     }
 
-    /**
-     * 将 Markdown 字符串转换并保存为 PDF 文件
-     * @param markdownContent Markdown 源码
-     * @param fileName 带后缀的文件名
-     * @throws Exception 将异常抛给上层统一处理
-     */
-    public void exportMarkdownToPdf(String markdownContent, String fileName) throws Exception {
-        // 1. 准备输出目录
-        Path downloadDir = Paths.get(Constants.DOWNLOAD_PATH);
-        if (!Files.exists(downloadDir)) {
-            Files.createDirectories(downloadDir);
-        }
-        String outputPath = downloadDir.resolve(fileName).toString();
-
-        // 2. Markdown 转换为 HTML
+    public void convertMarkdownToPdf(String markdownContent, String destPath) throws Exception {
+        // 1. Flexmark: Markdown -> HTML
         MutableDataSet options = new MutableDataSet();
-        // 如果需要表格支持，可以在此添加 TablesExtension
         Parser parser = Parser.builder(options).build();
         HtmlRenderer renderer = HtmlRenderer.builder(options).build();
+        String rawHtml = renderer.render(parser.parse(markdownContent));
 
-        String htmlBody = renderer.render(parser.parse(markdownContent));
-
-        // 3. 构造标准的 HTML 结构 (解决中文字体和编码问题)
-        // 注意：PDF 渲染对 HTML 规范要求较高，建议添加基础样式
-        String fullHtml = "<!DOCTYPE html><html><head>" +
-                "<meta charset='UTF-8'>" +
-                "<style>" +
-                "body { font-family: 'Arial Unicode MS', 'SimSun', sans-serif; padding: 20px; line-height: 1.6; }" +
-                "pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }" +
-                "code { font-family: monospace; }" +
+        // 2. 注入 CSS 样式，确保 HTML 使用我们注册的字体
+        String processedHtml = "<html><head><style>" +
+                "body { font-family: '" + Constants.FONT_FAMILY_NAME + "', sans-serif; }" +
                 "</style></head><body>" +
-                htmlBody +
+                rawHtml +
                 "</body></html>";
 
-        // 4. 将 HTML 渲染为 PDF
-        try (OutputStream os = new FileOutputStream(outputPath)) {
+        // 3. OpenHTMLtoPDF: HTML -> PDF
+        try (OutputStream os = new FileOutputStream(destPath)) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
             builder.useFastMode();
-            // 必须指定字符集编码，否则中文可能乱码
-            builder.withHtmlContent(fullHtml, null);
+
+            // --- 解决中文乱码：从 Resources 加载字体 ---
+            builder.useFont(new FSSupplier<InputStream>() {
+                @Override
+                public InputStream supply() {
+                    // 使用类加载器读取 resources 下的文件
+                    InputStream is = ExportReportUseCase.class.getResourceAsStream(Constants.FONT_RESOURCE_PATH);
+                    if (is == null) {
+                        throw new RuntimeException("找不到字体文件: " + Constants.FONT_RESOURCE_PATH);
+                    }
+                    return is;
+                }
+            }, Constants.FONT_FAMILY_NAME);
+            // ---------------------------------------
+
+            builder.withHtmlContent(processedHtml, null);
             builder.toStream(os);
             builder.run();
         }
-
-        System.out.println("PDF 报表已生成: " + outputPath);
     }
 }

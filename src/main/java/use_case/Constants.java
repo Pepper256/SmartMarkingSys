@@ -54,6 +54,8 @@ public class Constants {
             "\n" +
             "5. Final Output: The entire output must be a single JSON object.";
 
+    public static final String FONT_RESOURCE_PATH = "/fonts/simsun.ttf";
+    public static final String FONT_FAMILY_NAME = "SimSun";
 
     // TODO: delete this when ocr is integrated
     public static final String TEST_OCR_RESPONSE = "[\n" +
