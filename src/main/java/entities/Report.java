@@ -1,5 +1,7 @@
 package entities;
 
+import com.alibaba.fastjson.JSONObject;
+
 public class Report {
 
     private String id;
@@ -34,5 +36,13 @@ public class Report {
 
     public String getExamPaperId() {
         return examPaperId;
+    }
+
+    public String toJsonString() {
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("id", this.id);
+        jsonObject.put("examPaperId", this.examPaperId);
+        jsonObject.put("content", this.content);
+        return jsonObject.toJSONString().trim();
     }
 }
