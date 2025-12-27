@@ -53,7 +53,7 @@ public class ReportDao implements GenerateReportDataAccessInterface,
         if (reportId == null || reportId.trim().isEmpty()) return null;
         DatabaseManager.initSchemaIfNeeded();
 
-        String sql = "SELECT id, exam_paper_id, content FROM report WHERE id = ?";
+        String sql = "SELECT id, exam_paper_id, student_paper_id, content FROM report WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, reportId);
@@ -62,6 +62,7 @@ public class ReportDao implements GenerateReportDataAccessInterface,
                 return new Report(
                         rs.getString("id"),
                         rs.getString("exam_paper_id"),
+                        rs.getString("student_paper_id"),
                         rs.getString("content")
                 );
             }

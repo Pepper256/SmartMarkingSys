@@ -62,7 +62,7 @@ public class ReportDaoSqliteTest {
 
     @Test
     void storeThenLoadReport_roundTrip() {
-        Report r = new Report("R1", "EXAM_R", "report content");
+        Report r = new Report("R1", "EXAM_R", "jkljkl","report content");
         reportDao.storeReport(r);
 
         Report loaded = reportDao.getReportByReportId("R1");
