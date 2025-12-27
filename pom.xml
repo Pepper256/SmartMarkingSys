@@ -44,7 +44,7 @@
             <version>2.15.2</version>
         </dependency>
 
-        <!-- qwen api -->
+        <!-- fast json -->
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>

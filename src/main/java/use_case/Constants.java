@@ -34,7 +34,23 @@ public class Constants {
             "\"correctness\":\"true或false，代表该题正确性。\"," +
             "\"reason\":\"如果该题正确，则值为空，如果该题错误，则分析错误原因并将分析出的错因作为该字段的值。\"}}," +
             "\"markWithCoords\":json2，保持该json格式不变，在列表的每一项可能为学生回答的json对象内添加新的字段，\"correctness\":true或false，代表该题正确性。" +
-            "}，若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增。在json的任何部位，不要出现json1，json2和json3的字样";
+            "}，若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
+    public static final String REPORT_PROMPT = """
+            你是一位专业的AI助教。请根据以下已批改试卷的数据及图片内容，生成一份详细的学习总结纸质报告。
+
+            【科目】：%s
+
+            【学生答题详情】：
+            %s
+
+            【报告要求】：
+            1. 分析学生在各个知识点上的掌握情况。
+            2. 总结典型的错误类型（如：概念模糊、计算失误、审题不严）。
+            3. 结合批改图片中的痕迹，评价学生的书写或解题过程。
+            4. 提供不少于3条具体的后续学习建议。
+
+            请直接输出报告正文，不要包含多余的开场白。在报告的结尾，不要输出\"报告完毕\"或相近意思的字，只需要以一条实线结尾即可
+            """;
 
     public static final String DOWNLOAD_PATH = Paths.get(System.getProperty("user.home"), "Downloads").toString();
     public static final String OCR_PROMPT = "Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.\n" +

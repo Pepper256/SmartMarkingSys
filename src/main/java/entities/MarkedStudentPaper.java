@@ -2,6 +2,7 @@ package entities;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
 
@@ -10,6 +11,8 @@ public class MarkedStudentPaper extends StudentPaper{
     private String markedContent;
     private HashMap<String, Boolean> correctness; // question to correctness map
     private HashMap<String, String> reasons;
+
+    public MarkedStudentPaper() {}
 
     public MarkedStudentPaper(String id,
                                 String examPaperId,
@@ -71,5 +74,15 @@ public class MarkedStudentPaper extends StudentPaper{
         temp.put("markedContent", this.markedContent);
         temp.put("reasons", this.reasons);
         return temp.toJSONString();
+    }
+
+    public static MarkedStudentPaper jsonToMarkedStudentPaper(String json) {
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            return mapper.readValue(json, MarkedStudentPaper.class);
+        }
+        catch (Exception e){
+            return null;
+        }
     }
 }
