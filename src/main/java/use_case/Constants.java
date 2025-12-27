@@ -5,7 +5,6 @@ import java.nio.file.Paths;
 public class Constants {
 
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
-    public static final String DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
     public static final String OCR_API_URL = ""; // TODO
 
     public static final String DAO_PATH = "./src/main/resources/database/data.json";
