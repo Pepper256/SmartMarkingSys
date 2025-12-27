@@ -1,6 +1,8 @@
 package use_case.generate_student_report;
 
 import app.Main;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -17,6 +19,8 @@ import use_case.dto.GenerateStudentReportInputData;
 import use_case.dto.GenerateStudentReportOutputData;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,10 +52,10 @@ public class GenerateStudentReportUseCase implements GenerateStudentReportInputB
             String questionDetails = formatQuestionDetails(paper);
 
             // 2. 组装最终 Prompt
-            String finalPrompt = String.format(Constants.REPORT_PROMPT, paper.getSubject(), questionDetails);
+            String finalPrompt = Constants.REPORT_PROMPT + "\n以下为试卷内容\n" + questionDetails;
 
             // 3. 发起原生 HTTP 请求调用 Qwen-VL-Flash
-            String generatedReport = callQwenVlFlashApi(paper.getMarkedContent(), finalPrompt);
+            String generatedReport = callQwenVlFlashApi(finalPrompt);
 
             // 4. 创建 Report 对象并持久化
             Report report = new Report(
@@ -72,41 +76,25 @@ public class GenerateStudentReportUseCase implements GenerateStudentReportInputB
     }
 
     private String formatQuestionDetails(MarkedStudentPaper paper) {
-        StringBuilder sb = new StringBuilder();
-        paper.getQuestions().forEach((id, question) -> {
-            String response = paper.getResponses().getOrDefault(id, "未作答");
-            boolean isCorrect = paper.getCorrectness().getOrDefault(id, false);
-            String reason = paper.getReasons().getOrDefault(id, "无详细解析");
+        HashMap<String, String> questions = paper.getQuestions();
+        HashMap<String, Boolean> correctness = paper.getCorrectness();
+        HashMap<String, String> responses = paper.getResponses();
 
-            sb.append(String.format("- 题目: %s\n  回答: %s\n  判题: %s\n  原因: %s\n\n",
-                    question, response, isCorrect ? "正确 ✅" : "错误 ❌", reason));
-        });
-        return sb.toString();
+        JSONObject jsonObject = new JSONObject();
+        for(String key : questions.keySet()) {
+            JSONObject temp = new JSONObject();
+            temp.put("question", questions.get(key));
+            temp.put("correctness", correctness.getOrDefault(key, false));
+            temp.put("response", responses.getOrDefault(key, ""));
+            jsonObject.put(key, temp);
+        }
+        return jsonObject.toJSONString();
     }
 
-    private String callQwenVlFlashApi(String imageUrl, String prompt) throws IOException {
-        // 建议在 DAO 或环境变量中管理 API Key
-        String apiKey = Main.loadQwenApiKey();
+    private String callQwenVlFlashApi(String prompt) throws IOException {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
-            httpPost.setHeader("Authorization", "Bearer " + apiKey);
-            httpPost.setHeader("Content-Type", "application/json");
-
-            // 构造符合 Qwen-VL 规范的 JSON 结构
-            ObjectNode rootNode = objectMapper.createObjectNode();
-            rootNode.put("model", "qwen3-vl-flash");
-
-            ObjectNode inputNode = rootNode.putObject("input");
-            ArrayNode messages = inputNode.putArray("messages");
-            ObjectNode userMessage = messages.addObject();
-            userMessage.put("role", "user");
-
-            ArrayNode contents = userMessage.putArray("content");
-            contents.addObject().put("image", imageUrl); // 传入批改后的图片
-            contents.addObject().put("text", prompt);     // 传入分析指令
-
-            httpPost.setEntity(new StringEntity(rootNode.toString(), ContentType.APPLICATION_JSON));
+            HttpPost httpPost = getHttpPost(prompt);
 
             return httpClient.execute(httpPost, response -> {
                 String responseBody = EntityUtils.toString(response.getEntity());
@@ -127,5 +115,26 @@ public class GenerateStudentReportUseCase implements GenerateStudentReportInputB
                         .asText();
             });
         }
+    }
+
+    private HttpPost getHttpPost(String prompt) {
+        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
+        httpPost.setHeader("Content-Type", "application/json");
+
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "qwen3-vl-flash");
+
+        JSONObject message = new JSONObject();
+        message.put("role", "user");
+        JSONArray content = new JSONArray();
+        content.add(new JSONObject().fluentPut("text", prompt));
+        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+
+        message.put("content", content);
+        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+
+        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
+        return httpPost;
     }
 }
