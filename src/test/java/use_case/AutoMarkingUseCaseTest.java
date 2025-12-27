@@ -8,6 +8,7 @@ import entities.StudentPaper;
 import interface_adapter.auto_marking.AutoMarkingPresenter;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import use_case.auto_marking.AutoMarkingDataAccessInterface;
 import use_case.auto_marking.AutoMarkingUseCase;
@@ -32,6 +33,7 @@ public class AutoMarkingUseCaseTest {
     }
 
     @Test
+    @Disabled("Integration test: requires config.properties API keys")
     public void AutoMarkingUseCaseApiTest() {
         useCase.execute(new AutoMarkingInputData(ids));
     }

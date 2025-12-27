@@ -26,3 +26,10 @@ replay_pid*
 # Intellij build files
 .idea/*
 src/main/resources/*
+
+# Runtime SQLite database files (generated)
+*.db
+database/
+
+#Target files
+/target/

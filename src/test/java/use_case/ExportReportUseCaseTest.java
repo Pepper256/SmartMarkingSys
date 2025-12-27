@@ -3,6 +3,7 @@ package use_case;
 import entities.Report;
 import interface_adapter.export_report.ExportReportPresenter;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import use_case.auto_marking.AutoMarkingDataAccessInterface;
 import use_case.dto.ExportReportInputData;
@@ -21,6 +22,7 @@ public class ExportReportUseCaseTest {
     }
 
     @Test
+    @Disabled("Integration test")
     public void ExportReportUseCasePdfTest() {
         useCase.execute(new ExportReportInputData("1"));
     }

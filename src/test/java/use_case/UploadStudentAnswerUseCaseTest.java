@@ -3,6 +3,7 @@ package use_case;
 import entities.StudentPaper;
 import interface_adapter.upload_student_answer.UploadStudentAnswerPresenter;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import use_case.dto.UploadStudentAnswerInputData;
 import use_case.upload_student_answer.UploadStudentAnswerDataAccessInterface;
@@ -27,6 +28,7 @@ public class UploadStudentAnswerUseCaseTest {
     }
 
     @Test
+    @Disabled("Integration test: requires config.properties API keys and real PDF inputs")
     public void UploadStudentAnswerUseCaseApiTest() {
         inputBoundary.execute(new UploadStudentAnswerInputData(paths, "1"));
     }
