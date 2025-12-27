@@ -60,6 +60,7 @@ public class GenerateStudentReportUseCase implements GenerateStudentReportInputB
             // 4. 创建 Report 对象并持久化
             Report report = new Report(
                     "report_" + UUID.randomUUID().toString(),
+                    paper.getExamPaperId(),
                     paper.getId(),
                     generatedReport
             );
