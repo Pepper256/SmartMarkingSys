@@ -7,12 +7,15 @@ public class Constants {
     public static final String API_MODEL = "qwen3-vl-flash";
 
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
-    public static final String OCR_API_URL = ""; // TODO
+    public static final String OCR_API_URL = "http://localhost:8000/v1/chat/completions";
 
     public static final String DAO_PATH = "./src/main/resources/database/data.json";
 
     public static final String OCR_MODEL_NAME = "rednote-hilab/dots.ocr";
     public static final String OCR_API_KEY = "random666ydbyl";
+    public static final double DEFAULT_TEMP = 0.1;
+    public static final double DEFAULT_TOP_P = 0.9;
+    public static final int MAX_TOKENS = 32768;
 
     public static final String ANSWER_PROMPT = """
     你是一个高精度的 OCR 试卷识别助手。请分析图片并输出 JSON：

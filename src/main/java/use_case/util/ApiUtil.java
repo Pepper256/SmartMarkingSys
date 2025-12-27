@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
@@ -76,58 +77,54 @@ public class ApiUtil {
         ObjectMapper mapper = new ObjectMapper();
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-
-            // 1. 将 BufferedImage 转换为 Base64 字符串
-            String base64Image = encodeImageToBase64(image);
-
-            // 2. 构造请求体 (OpenAI Vision 格式)
-            ObjectNode rootNode = mapper.createObjectNode();
-            rootNode.put("model", Constants.OCR_MODEL_NAME);
-
-            ArrayNode messagesArray = rootNode.putArray("messages");
-            ObjectNode userMessage = messagesArray.addObject();
-            userMessage.put("role", "user");
-
-            // 多模态 content 是一个数组
-            ArrayNode contentArray = userMessage.putArray("content");
-
-            // 文本部分
-            ObjectNode textContent = contentArray.addObject();
-            textContent.put("type", "text");
-            textContent.put("text", prompt);
-
-            // 图片部分
-            ObjectNode imageContent = contentArray.addObject();
-            imageContent.put("type", "image_url");
-            ObjectNode imageUrl = imageContent.putObject("image_url");
-            // 格式必须为 data:image/png;base64,{base64_data}
-            imageUrl.put("url", "data:image/png;base64," + base64Image);
-
-            // 3. 发送请求
             HttpPost httpPost = new HttpPost(Constants.OCR_API_URL);
             httpPost.setHeader("Authorization", "Bearer " + Constants.OCR_API_KEY);
             httpPost.setHeader("Content-Type", "application/json");
 
-            StringEntity entity = new StringEntity(
-                    mapper.writeValueAsString(rootNode),
-                    ContentType.APPLICATION_JSON
-            );
-            httpPost.setEntity(entity);
+            // --- 构建 JSON Payload ---
+            ObjectNode rootNode = mapper.createObjectNode();
+            rootNode.put("model", Constants.OCR_MODEL_NAME);
+            rootNode.put("temperature", Constants.DEFAULT_TEMP);
+            rootNode.put("top_p", Constants.DEFAULT_TOP_P);
+            rootNode.put("max_completion_tokens", Constants.MAX_TOKENS);
 
-            return httpClient.execute(httpPost, response -> {
-                String responseString = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            ArrayNode messages = rootNode.putArray("messages");
+            ObjectNode userMessage = messages.addObject();
+            userMessage.put("role", "user");
+
+            ArrayNode contentArray = userMessage.putArray("content");
+
+            // 1. 集成 Python PILimage_to_base64 的逻辑：添加 Data URI 前缀
+            // 这里调用了您的 encodeImageToBase64 但在外部包装了前缀
+            String base64Data = encodeImageToBase64(image);
+            String dataUri = "data:image/png;base64," + base64Data;
+
+            ObjectNode imagePart = contentArray.addObject();
+            imagePart.put("type", "image_url");
+            imagePart.putObject("image_url").put("url", dataUri);
+
+            // 2. 文本部分 (保留特殊的 vLLM Token 拼接)
+            ObjectNode textPart = contentArray.addObject();
+            textPart.put("type", "text");
+            textPart.put("text", String.format("<|img|><|imgpad|><|endofimg|>%s", prompt));
+
+            // 设置 Entity
+            httpPost.setEntity(new StringEntity(mapper.writeValueAsString(rootNode), ContentType.APPLICATION_JSON));
+
+            // --- 执行请求 ---
+            try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+                String responseBody = EntityUtils.toString(response.getEntity());
                 if (response.getStatusLine().getStatusCode() == 200) {
-                    return mapper.readTree(responseString)
-                            .path("choices").get(0)
-                            .path("message").path("content").asText();
+                    ObjectNode responseJson = (ObjectNode) mapper.readTree(responseBody);
+                    return responseJson.get("choices").get(0).get("message").get("content").asText();
                 } else {
-                    return "API Error: " + response.getStatusLine().getStatusCode() + " - " + responseString;
+                    System.err.println("Error: " + response.getStatusLine().getStatusCode() + " - " + responseBody);
+                    return null;
                 }
-            });
-
+            }
         } catch (Exception e) {
-            e.printStackTrace();
-            return "Failed: " + e.getMessage();
+            System.err.println("Request failed: " + e.getMessage());
+            return null;
         }
     }
 

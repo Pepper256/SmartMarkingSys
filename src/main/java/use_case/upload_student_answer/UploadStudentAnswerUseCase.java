@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import entities.StudentPaper;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -80,44 +81,35 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     /**
      * 处理单个文档（PDF 或 图片）
      */
-    private JSONObject processStudentDocument(String path, String studentPaperId, String examPaperId) throws Exception {
+    public JSONObject processStudentDocument(String path, String studentPaperId, String examPaperId) throws Exception {
         File file = new File(path);
         if (!file.exists()) throw new FileNotFoundException("文件不存在: " + path);
 
         String extension = FileUtil.getFileExtension(path).toLowerCase();
-        List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
+
+        // 步骤 1: 并发执行 OCR 识别（只识图，不请求 API）
+        List<CompletableFuture<String>> ocrFutures = new ArrayList<>();
 
         if ("pdf".equals(extension)) {
             int pageCount;
-            // 1. 获取总页数 (PDFBox 2.x 直接使用 PDDocument.load)
             try (PDDocument metaDoc = PDDocument.load(file)) {
                 pageCount = metaDoc.getNumberOfPages();
             }
 
             for (int i = 0; i < pageCount; i++) {
                 final int pageIdx = i;
-                futures.add(CompletableFuture.supplyAsync(() -> {
-                    // 2. 针对每一页，重新加载文档。
-                    // 在 2.x 中，MemoryUsageSetting.setupTempFileOnly() 能有效防止大文件撑爆内存
+                ocrFutures.add(CompletableFuture.supplyAsync(() -> {
+                    // 使用临时文件模式加载，防止大 PDF 内存溢出
                     try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
-
                         PDFRenderer renderer = new PDFRenderer(document);
-
-                        // 3. 2.x 支持 renderImageWithDPI，参数与 3.x 基本一致
                         BufferedImage image = renderer.renderImageWithDPI(pageIdx, 144);
-
                         try {
-                            if (image == null) throw new RuntimeException("渲染结果为空");
-
-                            return processSinglePage(image, studentPaperId);
+                            if (image == null) throw new RuntimeException("第 " + pageIdx + " 页渲染为空");
+                            return ocrProcess(image); // 仅返回 OCR 文本内容
                         } finally {
-                            // 显式回收图片内存，防止堆外内存溢出
-                            if (image != null) {
-                                image.flush();
-                            }
+                            if (image != null) image.flush();
                         }
                     } catch (Exception e) {
-                        System.out.println("处理第 " + pageIdx + " 页失败");
                         throw new RuntimeException("处理第 " + pageIdx + " 页失败", e);
                     }
                 }, ThreadUtil.getExecutor()));
@@ -125,93 +117,111 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         } else if ("png".equals(extension) || "jpg".equals(extension)) {
             BufferedImage image = ImageIO.read(file);
             if (image == null) throw new IOException("无法解码图片");
-            futures.add(CompletableFuture.supplyAsync(() -> processSinglePage(image, studentPaperId), ThreadUtil.getExecutor()));
+            ocrFutures.add(CompletableFuture.supplyAsync(() -> {
+                try {
+                    return ocrProcess(image);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    image.flush();
+                }
+            }, ThreadUtil.getExecutor()));
         } else {
             throw new IllegalArgumentException("不支持的文件类型: " + extension);
         }
 
-        // 等待所有页面任务完成
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        // 步骤 2: 等待所有页面的 OCR 任务完成
+        CompletableFuture.allOf(ocrFutures.toArray(new CompletableFuture[0])).join();
 
-        // 合并多页 JSON 结果
-        JSONObject mergedJson = mergeStudentResults(futures);
-        mergedJson.put("id", studentPaperId);
-        mergedJson.put("examPaperId", examPaperId);
-
-        return mergedJson;
-    }
-
-    /**
-     * 单页处理：OCR -> Qwen-VL
-     */
-    private JSONObject processSinglePage(BufferedImage image, String id) {
-        try {
-            // 1. 执行 OCR 识别文字和位置
-            String ocrResult = ocrProcess(image);
-
-            String combinedPrompt = Constants.STUDENT_PROMPT + "\n【参考 OCR 识别结果】\n" + ocrResult;
-
-            // 3. 调用 Qwen-VL API (传入 Prompt + 图片 + OCR 辅助信息)
-            JSONObject llmResponse = callQwenVlApi(combinedPrompt);
-
-            // 4. 将 OCR 原始数据存入，用于后续溯源
-            llmResponse.put("coordContent", ocrResult);
-
-            return llmResponse;
-        } catch (Exception e) {
-            throw new RuntimeException("单页识别核心链路失败", e);
-        } finally {
-            if (image != null) image.flush(); // 释放内存
+        // 步骤 3: 按页码顺序汇总 OCR 结果
+        StringBuilder fullOcrContent = new StringBuilder();
+        for (int i = 0; i < ocrFutures.size(); i++) {
+            fullOcrContent.append("--- Page ").append(i + 1).append(" ---\n");
+            fullOcrContent.append(ocrFutures.get(i).get()).append("\n\n");
         }
+
+        // 步骤 4: 构造完整的 Prompt 并调用一次 API
+        String combinedPrompt = Constants.STUDENT_PROMPT +
+                "\n\n【以下是该学生答卷整份文档的 OCR 识别内容，请结合上下文进行批改/识别】\n" +
+                fullOcrContent.toString();
+
+        JSONObject llmResponse = callQwenVlApi(combinedPrompt);
+
+        // 步骤 5: 组装最终结果
+        JSONObject result = new JSONObject(new LinkedHashMap<>());
+        result.put("id", studentPaperId);
+        result.put("examPaperId", examPaperId);
+        result.put("subject", llmResponse.getString("subject") != null ? llmResponse.getString("subject") : "");
+        result.put("responses", llmResponse.getJSONObject("responses"));
+        result.put("questions", llmResponse.getJSONObject("questions"));
+        result.put("coordContent", fullOcrContent.toString()); // 保留 OCR 汇总日志供溯源
+
+        return result;
     }
 
     /**
-     * 调用 Qwen3-VL (Flash/Max) API
+     * 调用 Qwen API
      */
     private JSONObject callQwenVlApi(String combinedPrompt) throws Exception {
-        // 增强 Prompt：结合视觉和 OCR 文本
+        // 设置较长的超时时间，因为多页汇总处理耗时较久
+        RequestConfig config = RequestConfig.custom()
+                .setConnectTimeout(5000)
+                .setSocketTimeout(120000) // 120秒，适应长文本生成
+                .build();
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        try (CloseableHttpClient httpClient = HttpClients.custom().setDefaultRequestConfig(config).build()) {
             HttpPost httpPost = getHttpPost(combinedPrompt);
 
             String responseContent = httpClient.execute(httpPost, response -> {
-                if (response.getStatusLine().getStatusCode() != 200) {
-                    throw new RuntimeException("API 调用失败: " + response.getStatusLine().getStatusCode());
+                int status = response.getStatusLine().getStatusCode();
+                String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                if (status != 200) {
+                    throw new RuntimeException("API 调用失败，状态码: " + status + "，详情: " + body);
                 }
-                return EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                return body;
             });
 
             return parseQwenResponse(responseContent);
         }
     }
 
+    /**
+     * 构建 HttpPost 请求对象
+     */
     private HttpPost getHttpPost(String prompt) {
         HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
         httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
         httpPost.setHeader("Content-Type", "application/json");
 
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "qwen3-vl-flash");
+        requestBody.put("model", "qwen3-vl-flash"); // 或使用 qwen3-vl-max
 
         JSONObject message = new JSONObject();
         message.put("role", "user");
+
         JSONArray content = new JSONArray();
-        content.add(new JSONObject().fluentPut("text", prompt));
-        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+        // 只发送文本内容，因为 OCR 已经提供了视觉信息的文本描述
+        // 如果需要发送图片，请参考原代码中注释的部分
+        content.add(new JSONObject().fluentPut("type", "text").fluentPut("text", prompt));
 
         message.put("content", content);
-        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+
+        JSONObject input = new JSONObject();
+        input.put("messages", Collections.singletonList(message));
+        requestBody.put("input", input);
 
         httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
         return httpPost;
     }
 
     /**
-     * 解析 Qwen 返回的 Markdown JSON
+     * 解析 AI 返回的 Markdown JSON
      */
     private JSONObject parseQwenResponse(String rawJson) {
         JSONObject responseObj = JSON.parseObject(rawJson);
-        String text = responseObj.getJSONObject("output")
+
+        // 兼容通义千问 API 的响应结构
+        String contentText = responseObj.getJSONObject("output")
                 .getJSONArray("choices")
                 .getJSONObject(0)
                 .getJSONObject("message")
@@ -219,112 +229,24 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
                 .getJSONObject(0)
                 .getString("text");
 
-        String cleanJson = text.replaceAll("```json", "").replaceAll("```", "").trim();
-        return JSON.parseObject(cleanJson);
-    }
+        // 清理大模型可能返回的 Markdown 格式代码块标记
+        String cleanJson = contentText.replaceAll("(?s)```json\\s*(.*?)\\s*```", "$1")
+                .replaceAll("```", "")
+                .trim();
 
-    /**
-     * 合并各页数据
-     */
-    private JSONObject mergeStudentResults(List<CompletableFuture<JSONObject>> futures) throws Exception {
-        JSONObject root = new JSONObject(new LinkedHashMap<>());
-        JSONObject allAnswers = new JSONObject(new LinkedHashMap<>());
-        JSONObject allQuestions = new JSONObject(new LinkedHashMap<>());
-        StringBuilder ocrLog = new StringBuilder();
-        String subject = "";
-
-
-        for (CompletableFuture<JSONObject> future : futures) {
-            JSONObject pageData = future.get();
-            if (pageData.containsKey("responses")) {
-                allAnswers.putAll(pageData.getJSONObject("responses"));
-            }
-            if (pageData.containsKey("coordContent")) {
-                ocrLog.append(pageData.getString("coordContent")).append("\n");
-            }
-            if(pageData.containsKey("subject")) {
-                subject = pageData.getString("subject");
-            }
-            if(pageData.containsKey("questions")) {
-                allQuestions.putAll(pageData.getJSONObject("questions"));
-            }
+        try {
+            return JSON.parseObject(cleanJson);
+        } catch (Exception e) {
+            // 如果 JSON 解析失败，将原始文本存入，方便排查
+            JSONObject errorObj = new JSONObject();
+            errorObj.put("error", "JSON解析失败");
+            errorObj.put("rawText", contentText);
+            return errorObj;
         }
-
-        root.put("responses", allAnswers);
-        root.put("coordContent", ocrLog.toString());
-        root.put("subject", subject);
-        root.put("questions", allQuestions);
-        return root;
-    }
-
-    private String encodeImageToBase64(BufferedImage image) throws Exception {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(image, "png", baos);
-        return Base64.getEncoder().encodeToString(baos.toByteArray());
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
-        // TODO
         return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
 //        return Constants.TEST_OCR_RESPONSE;
-    }
-
-    public String getLLMResponseFromImage(BufferedImage image, String prompt) {
-        ObjectMapper mapper = new ObjectMapper();
-
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-
-            // 1. 将 BufferedImage 转换为 Base64 字符串
-            String base64Image = encodeImageToBase64(image);
-
-            // 2. 构造请求体 (OpenAI Vision 格式)
-            ObjectNode rootNode = mapper.createObjectNode();
-            rootNode.put("model", Constants.OCR_MODEL_NAME);
-
-            ArrayNode messagesArray = rootNode.putArray("messages");
-            ObjectNode userMessage = messagesArray.addObject();
-            userMessage.put("role", "user");
-
-            // 多模态 content 是一个数组
-            ArrayNode contentArray = userMessage.putArray("content");
-
-            // 文本部分
-            ObjectNode textContent = contentArray.addObject();
-            textContent.put("type", "text");
-            textContent.put("text", prompt);
-
-            // 图片部分
-            ObjectNode imageContent = contentArray.addObject();
-            imageContent.put("type", "image_url");
-            ObjectNode imageUrl = imageContent.putObject("image_url");
-            // 格式必须为 data:image/png;base64,{base64_data}
-            imageUrl.put("url", "data:image/png;base64," + base64Image);
-
-            // 3. 发送请求
-            HttpPost httpPost = new HttpPost(Constants.OCR_API_URL);
-            httpPost.setHeader("Authorization", "Bearer " + Constants.OCR_API_KEY);
-            httpPost.setHeader("Content-Type", "application/json");
-
-            StringEntity entity = new StringEntity(
-                    mapper.writeValueAsString(rootNode),
-                    ContentType.APPLICATION_JSON
-            );
-            httpPost.setEntity(entity);
-
-            return httpClient.execute(httpPost, response -> {
-                String responseString = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                if (response.getStatusLine().getStatusCode() == 200) {
-                    return mapper.readTree(responseString)
-                            .path("choices").get(0)
-                            .path("message").path("content").asText();
-                } else {
-                    return "API Error: " + response.getStatusLine().getStatusCode() + " - " + responseString;
-                }
-            });
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "Failed: " + e.getMessage();
-        }
     }
 }
