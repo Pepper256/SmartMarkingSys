@@ -34,6 +34,22 @@ public class Constants {
             "输出的json的第一个字段的说明到此结束，接下来为第二个字段的说明," +
             "\"markWithCoords\":第二个输入的json，保持该json格式不变，在每一个可能为学生回答的json对象内添加新的字段，\"marked\":true或false，代表该题正确性。" +
             "}，若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
+    public static final String REPORT_PROMPT = """
+            你是一位专业的AI助教。请根据以下已批改试卷的数据及图片内容，生成一份详细的学习总结报告。
+
+            【科目】：%s
+
+            【学生答题详情】：
+            %s
+
+            【报告要求】：
+            1. 分析学生在各个知识点上的掌握情况。
+            2. 总结典型的错误类型（如：概念模糊、计算失误、审题不严）。
+            3. 结合批改图片中的痕迹，评价学生的书写或解题过程。
+            4. 提供不少于3条具体的后续学习建议。
+
+            请直接输出报告正文，不要包含多余的开场白。
+            """;
 
     public static final String DOWNLOAD_PATH = Paths.get(System.getProperty("user.home"), "Downloads").toString();
     public static final String OCR_PROMPT = "Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.\n" +

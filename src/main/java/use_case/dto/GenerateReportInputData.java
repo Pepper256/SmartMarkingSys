@@ -4,8 +4,8 @@ public class GenerateReportInputData {
 
     private final String examPaperId;
 
-    public GenerateReportInputData(String examId) {
-        this.examPaperId = examId;
+    public GenerateReportInputData(String examPaperId) {
+        this.examPaperId = examPaperId;
     }
 
     public String getExamPaperId() {
