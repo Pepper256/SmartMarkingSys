@@ -89,3 +89,4 @@
 阿里巴巴百炼大模型服务平台的apikey
    2. resources目录下提供test.pdf用于测试需求
    3. 该程序使用dots.ocr作为ocr服务，请在本地启动dots.ocr的vllm后端，详见docs/OCR.md
+   4. 该项目虽然提供了view目录但是无UI
