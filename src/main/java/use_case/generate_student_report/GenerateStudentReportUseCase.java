@@ -95,7 +95,7 @@ public class GenerateStudentReportUseCase implements GenerateStudentReportInputB
 
             // 构造符合 Qwen-VL 规范的 JSON 结构
             ObjectNode rootNode = objectMapper.createObjectNode();
-            rootNode.put("model", "qwen-vl-flash");
+            rootNode.put("model", "qwen3-vl-flash");
 
             ObjectNode inputNode = rootNode.putObject("input");
             ArrayNode messages = inputNode.putArray("messages");

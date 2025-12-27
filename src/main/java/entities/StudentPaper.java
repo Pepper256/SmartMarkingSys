@@ -15,6 +15,8 @@ public class StudentPaper {
     private String subject;
     private String coordContent;
 
+    public StudentPaper() {}
+
     public StudentPaper(String id,
                         String examPaperId,
                         String subject,
@@ -94,11 +96,28 @@ public class StudentPaper {
     public String toJsonString() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("id", this.getId());
-        jsonObject.put("examId", this.getExamPaperId());
+        jsonObject.put("examPaperId", this.getExamPaperId());
         jsonObject.put("subject", this.getSubject());
         jsonObject.put("questions", this.getQuestions());
         jsonObject.put("responses", this.getResponses());
         jsonObject.put("coordContent", this.getCoordContent());
         return jsonObject.toJSONString();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        try {
+            StudentPaper studentPaperObj = (StudentPaper) obj;
+
+            return studentPaperObj.getId().equals(this.id) &&
+                    studentPaperObj.getQuestions().equals(this.questions) &&
+                    studentPaperObj.getSubject().equals(this.subject) &&
+                    studentPaperObj.getCoordContent().equals(this.coordContent) &&
+                    studentPaperObj.getExamPaperId().equals(this.examPaperId) &&
+                    studentPaperObj.getResponses().equals(this.responses);
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 }

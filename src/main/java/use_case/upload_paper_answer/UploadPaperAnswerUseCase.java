@@ -4,11 +4,9 @@ import app.Main;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.org.apache.bcel.internal.Const;
 import entities.AnswerPaper;
 import entities.ExamPaper;
 import org.apache.http.client.methods.HttpPost;
@@ -17,8 +15,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import javax.imageio.ImageIO;
@@ -100,25 +96,28 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
         if ("pdf".equals(extension)) {
             int pageCount;
-            try (PDDocument metaDoc = Loader.loadPDF(file)) {
+            // PDFBox 2.x 使用 PDDocument.load 静态方法
+            try (PDDocument metaDoc = PDDocument.load(file)) {
                 pageCount = metaDoc.getNumberOfPages();
             }
 
             for (int i = 0; i < pageCount; i++) {
                 final int pageIdx = i;
                 futures.add(CompletableFuture.supplyAsync(() -> {
-                    try (RandomAccessReadBufferedFile raFile = new RandomAccessReadBufferedFile(file);
-                         PDDocument document = Loader.loadPDF(raFile)) {
+                    // PDFBox 2.x 不使用 Loader，直接通过 PDDocument.load 加载
+                    // 如果为了性能考虑，可以使用新的文件句柄或 byte[]
+                    try (PDDocument document = PDDocument.load(file)) {
 
                         PDFRenderer renderer = new PDFRenderer(document);
+                        // renderImageWithDPI 在 2.x 中依然可用
                         BufferedImage image = renderer.renderImageWithDPI(pageIdx, 144);
+
                         try {
                             if (image == null) throw new RuntimeException("渲染为空");
 
-                            // --- 核心改动：先执行 OCR ---
+                            // --- 核心逻辑 ---
                             String ocrResult = ocrProcess(image);
 
-                            // 将 OCR 结果作为上下文传给大模型
                             return callQwenVlApi(docId, encodeImageToBase64(image), ocrResult, docType.apiType);
                         } finally {
                             if (image != null) image.flush();
@@ -128,7 +127,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
                     }
                 }, ThreadUtil.getExecutor()));
             }
-        } else if ("png".equals(extension) || "jpg".equals(extension)) {
+        }else if ("png".equals(extension) || "jpg".equals(extension)) {
             BufferedImage image = ImageIO.read(file);
             futures.add(CompletableFuture.supplyAsync(() -> {
                 try {
@@ -155,6 +154,27 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
                     EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8));
             return parseQwenResponse(responseContent);
         }
+    }
+
+    private HttpPost getHttpPost(String base64Image, String prompt) {
+        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
+        httpPost.setHeader("Content-Type", "application/json");
+
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "qwen3-vl-flash");
+
+        JSONObject message = new JSONObject();
+        message.put("role", "user");
+        JSONArray content = new JSONArray();
+        content.add(new JSONObject().fluentPut("text", prompt));
+        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+
+        message.put("content", content);
+        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+
+        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
+        return httpPost;
     }
 
     // --- 以下为未变动的工具函数 ---
@@ -187,27 +207,6 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         return JSON.parseObject(cleanJson);
     }
 
-    private HttpPost getHttpPost(String base64Image, String prompt) {
-        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
-        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
-        httpPost.setHeader("Content-Type", "application/json");
-
-        JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "qwen3-vl-flash");
-
-        JSONObject message = new JSONObject();
-        message.put("role", "user");
-        JSONArray content = new JSONArray();
-        content.add(new JSONObject().fluentPut("text", prompt));
-        content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
-
-        message.put("content", content);
-        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
-
-        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
-        return httpPost;
-    }
-
     private String encodeImageToBase64(BufferedImage image) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(image, "png", baos);
@@ -215,19 +214,14 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
-        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+        // TODO
+//        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+        return Constants.TEST_OCR_RESPONSE;
     }
 
-    private static final String API_URL = "https://api.openai.com/v1/chat/completions";
-    private static final String API_KEY = "sk-xxxxxxxxxxxxxxxxxxxx";
-    private static final String MODEL_NAME = "gpt-4o"; // 必须使用支持视觉的模型
-
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    /**
-     * 输入图片，通过大模型进行识别解析
-     */
     public String getLLMResponseFromImage(BufferedImage image, String prompt) {
+        ObjectMapper mapper = new ObjectMapper();
+
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
 
             // 1. 将 BufferedImage 转换为 Base64 字符串
@@ -257,8 +251,8 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
             imageUrl.put("url", "data:image/png;base64," + base64Image);
 
             // 3. 发送请求
-            HttpPost httpPost = new HttpPost(API_URL);
-            httpPost.setHeader("Authorization", "Bearer " + API_KEY);
+            HttpPost httpPost = new HttpPost(Constants.OCR_API_URL);
+            httpPost.setHeader("Authorization", "Bearer " + Constants.OCR_API_KEY);
             httpPost.setHeader("Content-Type", "application/json");
 
             StringEntity entity = new StringEntity(
