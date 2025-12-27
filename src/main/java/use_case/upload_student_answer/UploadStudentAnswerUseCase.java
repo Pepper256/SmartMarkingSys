@@ -22,6 +22,7 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import use_case.Constants;
 import use_case.dto.UploadStudentAnswerInputData;
 import use_case.dto.UploadStudentAnswerOutputData;
+import use_case.util.ApiUtil;
 import use_case.util.FileUtil;
 import use_case.util.ThreadUtil;
 
@@ -264,8 +265,8 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
     private String ocrProcess(BufferedImage image) throws Exception {
         // TODO
-//        return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
-        return Constants.TEST_OCR_RESPONSE;
+        return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+//        return Constants.TEST_OCR_RESPONSE;
     }
 
     public String getLLMResponseFromImage(BufferedImage image, String prompt) {

@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import use_case.Constants;
 import use_case.dto.UploadPaperAnswerInputData;
 import use_case.dto.UploadPaperAnswerOutputData;
+import use_case.util.ApiUtil;
 import use_case.util.FileUtil;
 import use_case.util.ThreadUtil;
 
@@ -215,8 +216,8 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
     private String ocrProcess(BufferedImage image) throws Exception {
         // TODO
-//        return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
-        return Constants.TEST_OCR_RESPONSE;
+        return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+//        return Constants.TEST_OCR_RESPONSE;
     }
 
     public String getLLMResponseFromImage(BufferedImage image, String prompt) {
