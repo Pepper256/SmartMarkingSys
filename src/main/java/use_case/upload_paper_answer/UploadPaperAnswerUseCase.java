@@ -93,58 +93,64 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
                 UUID.randomUUID().toString().substring(0, 8) : System.currentTimeMillis());
 
         String extension = FileUtil.getFileExtension(filePath).toLowerCase();
-        List<CompletableFuture<JSONObject>> futures = new ArrayList<>();
+
+        // 1. 定义存储 OCR 文本结果的任务列表 (不再直接存储 API 返回的 JSONObject)
+        List<CompletableFuture<String>> ocrFutures = new ArrayList<>();
 
         if ("pdf".equals(extension)) {
             int pageCount;
-            // PDFBox 2.x 使用 PDDocument.load 静态方法
             try (PDDocument metaDoc = PDDocument.load(file)) {
                 pageCount = metaDoc.getNumberOfPages();
             }
 
             for (int i = 0; i < pageCount; i++) {
                 final int pageIdx = i;
-                futures.add(CompletableFuture.supplyAsync(() -> {
-                    // PDFBox 2.x 不使用 Loader，直接通过 PDDocument.load 加载
-                    // 如果为了性能考虑，可以使用新的文件句柄或 byte[]
+                ocrFutures.add(CompletableFuture.supplyAsync(() -> {
                     try (PDDocument document = PDDocument.load(file)) {
-
                         PDFRenderer renderer = new PDFRenderer(document);
-                        // renderImageWithDPI 在 2.x 中依然可用
                         BufferedImage image = renderer.renderImageWithDPI(pageIdx, 144);
-
                         try {
                             if (image == null) throw new RuntimeException("渲染为空");
-
-                            // --- 核心逻辑 ---
-                            String ocrResult = ocrProcess(image);
-                            String basePrompt = "answer".equals(docType.apiType) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
-                            String combinedPrompt = basePrompt + "\n\n以下是该图片的 OCR 识别结果，供参考：\n" + ocrResult;
-                            return callQwenVlApi(combinedPrompt);
+                            // 仅执行 OCR
+                            return ocrProcess(image);
                         } finally {
                             if (image != null) image.flush();
                         }
                     } catch (Exception e) {
-                        throw new RuntimeException("第 " + pageIdx + " 页处理失败", e);
+                        throw new RuntimeException("第 " + pageIdx + " 页 OCR 失败", e);
                     }
                 }, ThreadUtil.getExecutor()));
             }
-        }else if ("png".equals(extension) || "jpg".equals(extension)) {
+        } else if ("png".equals(extension) || "jpg".equals(extension)) {
             BufferedImage image = ImageIO.read(file);
-            futures.add(CompletableFuture.supplyAsync(() -> {
+            ocrFutures.add(CompletableFuture.supplyAsync(() -> {
                 try {
-                    String ocrResult = ocrProcess(image);
-                    String basePrompt = "answer".equals(docType.apiType) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
-                    String combinedPrompt = basePrompt + "\n\n以下是该图片的 OCR 识别结果，供参考：\n" + ocrResult;
-                    return callQwenVlApi(combinedPrompt);
+                    return ocrProcess(image);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             }, ThreadUtil.getExecutor()));
         }
 
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        return assembleResults(docId, futures, docType);
+        // 2. 等待所有页面的 OCR 完成
+        CompletableFuture.allOf(ocrFutures.toArray(new CompletableFuture[0])).join();
+
+        // 3. 汇总所有 OCR 结果
+        StringBuilder fullOcrText = new StringBuilder();
+        for (int i = 0; i < ocrFutures.size(); i++) {
+            fullOcrText.append("--- 第 ").append(i + 1).append(" 页内容 ---\n");
+            fullOcrText.append(ocrFutures.get(i).get()).append("\n\n");
+        }
+
+        // 4. 构造统一的 Prompt 并调用一次 API
+        String basePrompt = "answer".equals(docType.apiType) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
+        String combinedPrompt = basePrompt + "\n\n以下是整份文档的 OCR 识别结果，请统一处理：\n" + fullOcrText.toString();
+
+        JSONObject apiResponse = callQwenVlApi(combinedPrompt);
+
+        // 5. 组装最终结果
+        // 因为现在只有一次 API 调用，我们可以简化处理，或者兼容原有的 assembleResults 逻辑
+        return finalizeResult(docId, apiResponse, docType);
     }
 
     private JSONObject callQwenVlApi(String combinedPrompt) throws Exception {
@@ -180,23 +186,15 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
     // --- 以下为未变动的工具函数 ---
 
-    private JSONObject assembleResults(String id, List<CompletableFuture<JSONObject>> futures, DocType docType) throws Exception {
+    // 辅助方法：处理单次 API 返回的结果，保持数据结构一致
+    private JSONObject finalizeResult(String id, JSONObject apiData, DocType docType) {
         JSONObject root = new JSONObject(new LinkedHashMap<>());
         root.put("id", id);
-        root.put("subject", "");
-        JSONObject allQuestions = new JSONObject(new LinkedHashMap<>());
-        JSONObject allAnswers = new JSONObject(new LinkedHashMap<>());
-
-        for (CompletableFuture<JSONObject> future : futures) {
-            JSONObject pageData = future.get();
-            if (root.getString("subject").isEmpty() && pageData.containsKey("subject")) {
-                root.put("subject", pageData.getString("subject"));
-            }
-            if (pageData.containsKey("questions")) allQuestions.putAll(pageData.getJSONObject("questions"));
-            if (docType == DocType.ANSWER && pageData.containsKey("answers")) allAnswers.putAll(pageData.getJSONObject("answers"));
+        root.put("subject", apiData.getString("subject") != null ? apiData.getString("subject") : "");
+        root.put("questions", apiData.getJSONObject("questions"));
+        if (docType == DocType.ANSWER) {
+            root.put("answers", apiData.getJSONObject("answers"));
         }
-        root.put("questions", allQuestions);
-        if (docType == DocType.ANSWER) root.put("answers", allAnswers);
         return root;
     }
 
