@@ -148,11 +148,10 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
             // 1. 执行 OCR 识别文字和位置
             String ocrResult = ocrProcess(image);
 
-            // 2. 图片转 Base64 供 Qwen-VL 使用
-            String base64 = encodeImageToBase64(image);
+            String combinedPrompt = Constants.STUDENT_PROMPT + "\n【参考 OCR 识别结果】\n" + ocrResult;
 
             // 3. 调用 Qwen-VL API (传入 Prompt + 图片 + OCR 辅助信息)
-            JSONObject llmResponse = callQwenVlApi(id, base64, ocrResult);
+            JSONObject llmResponse = callQwenVlApi(combinedPrompt);
 
             // 4. 将 OCR 原始数据存入，用于后续溯源
             llmResponse.put("coordContent", ocrResult);
@@ -168,28 +167,11 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     /**
      * 调用 Qwen3-VL (Flash/Max) API
      */
-    private JSONObject callQwenVlApi(String id, String base64, String ocrContent) throws Exception {
+    private JSONObject callQwenVlApi(String combinedPrompt) throws Exception {
         // 增强 Prompt：结合视觉和 OCR 文本
-        String combinedPrompt = Constants.STUDENT_PROMPT + "\n【参考 OCR 识别结果】\n" + ocrContent;
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = getHttpPost(base64, combinedPrompt);
-//            httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
-//            httpPost.setHeader("Content-Type", "application/json");
-//
-//            // 构建符合 DashScope 规范的请求体
-//            JSONObject requestBody = new JSONObject();
-//            requestBody.put("model", "qwen3-vl-flash");
-//
-//            JSONObject message = new JSONObject();
-//            message.put("role", "user");
-//
-//            JSONArray content = new JSONArray();
-//            content.add(new JSONObject().fluentPut("text", combinedPrompt));
-////            content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64));
-//
-//            message.put("content", content);
-//            requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+            HttpPost httpPost = getHttpPost(combinedPrompt);
 
             String responseContent = httpClient.execute(httpPost, response -> {
                 if (response.getStatusLine().getStatusCode() != 200) {
@@ -202,20 +184,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         }
     }
 
-//    private JSONObject callQwenVlApi(String id, String base64, String ocrContent, String type) throws Exception {
-//        // 构造 Prompt，告诉模型结合 OCR 文本进行结构化
-//        String basePrompt = "answer".equals(type) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
-//        String combinedPrompt = basePrompt + "\n\n以下是该图片的 OCR 识别结果，供参考：\n" + ocrContent;
-//
-//        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-//            HttpPost httpPost = getHttpPost(base64, combinedPrompt);
-//            String responseContent = httpClient.execute(httpPost, response ->
-//                    EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8));
-//            return parseQwenResponse(responseContent);
-//        }
-//    }
-
-    private HttpPost getHttpPost(String base64Image, String prompt) {
+    private HttpPost getHttpPost(String prompt) {
         HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
         httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
         httpPost.setHeader("Content-Type", "application/json");
@@ -295,7 +264,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
     private String ocrProcess(BufferedImage image) throws Exception {
         // TODO
-//        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+//        return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
         return Constants.TEST_OCR_RESPONSE;
     }
 
