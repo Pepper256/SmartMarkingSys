@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import use_case.Constants;
 import use_case.dto.UploadPaperAnswerInputData;
 import use_case.dto.UploadPaperAnswerOutputData;
+import use_case.util.ApiUtil;
 import use_case.util.FileUtil;
 import use_case.util.ThreadUtil;
 
@@ -117,8 +118,9 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
                             // --- 核心逻辑 ---
                             String ocrResult = ocrProcess(image);
-
-                            return callQwenVlApi(docId, encodeImageToBase64(image), ocrResult, docType.apiType);
+                            String basePrompt = "answer".equals(docType.apiType) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
+                            String combinedPrompt = basePrompt + "\n\n以下是该图片的 OCR 识别结果，供参考：\n" + ocrResult;
+                            return callQwenVlApi(combinedPrompt);
                         } finally {
                             if (image != null) image.flush();
                         }
@@ -132,7 +134,9 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
             futures.add(CompletableFuture.supplyAsync(() -> {
                 try {
                     String ocrResult = ocrProcess(image);
-                    return callQwenVlApi(docId, encodeImageToBase64(image), ocrResult, docType.apiType);
+                    String basePrompt = "answer".equals(docType.apiType) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
+                    String combinedPrompt = basePrompt + "\n\n以下是该图片的 OCR 识别结果，供参考：\n" + ocrResult;
+                    return callQwenVlApi(combinedPrompt);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -143,20 +147,17 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         return assembleResults(docId, futures, docType);
     }
 
-    private JSONObject callQwenVlApi(String id, String base64, String ocrContent, String type) throws Exception {
-        // 构造 Prompt，告诉模型结合 OCR 文本进行结构化
-        String basePrompt = "answer".equals(type) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
-        String combinedPrompt = basePrompt + "\n\n以下是该图片的 OCR 识别结果，供参考：\n" + ocrContent;
+    private JSONObject callQwenVlApi(String combinedPrompt) throws Exception {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = getHttpPost(base64, combinedPrompt);
+            HttpPost httpPost = getHttpPost(combinedPrompt);
             String responseContent = httpClient.execute(httpPost, response ->
                     EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8));
             return parseQwenResponse(responseContent);
         }
     }
 
-    private HttpPost getHttpPost(String base64Image, String prompt) {
+    private HttpPost getHttpPost(String prompt) {
         HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
         httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
         httpPost.setHeader("Content-Type", "application/json");
@@ -215,8 +216,8 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
     private String ocrProcess(BufferedImage image) throws Exception {
         // TODO
-//        return getLLMResponseFromImage(image, Constants.OCR_PROMPT);
-        return Constants.TEST_OCR_RESPONSE;
+        return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+//        return Constants.TEST_OCR_RESPONSE;
     }
 
     public String getLLMResponseFromImage(BufferedImage image, String prompt) {

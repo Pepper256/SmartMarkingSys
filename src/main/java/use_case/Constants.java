@@ -4,6 +4,8 @@ import java.nio.file.Paths;
 
 public class Constants {
 
+    public static final String API_MODEL = "qwen3-vl-flash";
+
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
     public static final String OCR_API_URL = ""; // TODO
 
@@ -18,36 +20,60 @@ public class Constants {
     public static final String OCR_MODEL_NAME = "rednote-hilab/dots.ocr";
     public static final String OCR_API_KEY = "random666ydbyl";
 
-    public static final String ANSWER_PROMPT = "你是一个高精度的 OCR 试卷识别助手。请分析图片并输出 JSON：" +
-            "{\"subject\": \"学科\", \"questions\": {\"题号\": \"内容\"}, \"answers\": {\"题号\": \"解析或答案\"}}。" +
-            "如果题目或答案包含图片，请将图片内容描述清楚并在位置标注 [IMAGE:<对应的base64字符串>]。若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
-    public static final String EXAM_PROMPT = "你是一个老师。请识别图中试卷内容。输出JSON格式：{" +
-            "\"subject\": \"学科名\", " +
-            "\"questions\": {\"题号\": \"题目内容\"}" +
-            "}。若题目有图，请保留描述并在内容中包含[IMAGE:<对应的base64字符串>]。若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
-    public static final String STUDENT_PROMPT = "你是一个老师。请识别文本中已作答的试卷内容。输出JSON格式：{" +
-            "\"subject\": \"学科名\", " +
-            "\"questions\": {\"题号\": \"题目内容\"}," +
-            "\"responses\": {\"题号\": \"回答内容\"}," +
-            "}。若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
-    public static final String MARKING_PROMPT = "你是一个老师。请识别图中试卷内容并批改试卷。输入json1，json2和json3" +
-            "json1包含题号到题目和学生答案的嵌套键值对。json2为包含坐标信息的学生作答试卷。" +
-            "json2是一个列表，包含坐标信息，你需要推理并批改对应学生作答的部分。" +
-            "json3为题号和答案的键值对，供批改参考" +
-            "输出JSON格式，包含两个字段：{" +
-            "\"answerInfo\": {\"题号\":{\"question\":\"题目内容\"," +
-            "\"answer\":\"回答内容\"," +
-            "\"correctness\":\"true或false，代表该题正确性。\"," +
-            "\"reason\":\"如果该题正确，则值为空，如果该题错误，则分析错误原因并将分析出的错因作为该字段的值。\"}}," +
-            "\"markWithCoords\":json2，保持该json格式不变，在列表的每一项可能为学生回答的json对象内添加新的字段，\"correctness\":true或false，代表该题正确性。" +
-            "}，若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增";
-    public static final String REPORT_PROMPT = """
-            你是一位专业的AI助教。请根据以下已批改试卷的数据及图片内容，生成一份详细的学习总结纸质报告。
+    public static final String ANSWER_PROMPT = """
+    你是一个高精度的 OCR 试卷识别助手。请分析图片并输出 JSON：
+    {
+      "subject": "学科",
+      "questions": {"题号": "内容"},
+      "answers": {"题号": "解析或答案"}
+    }
+    如果题目或答案包含图片，请将图片内容描述清楚并在位置标注 [IMAGE:<对应的base64字符串>]。若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增
+    """;
+    public static final String EXAM_PROMPT = """
+    你是一个老师。请识别图中试卷内容。输出JSON格式：
+    {
+      "subject": "学科名",
+      "questions": {"题号": "题目内容"}
+    }
+    。若题目有图，请保留描述并在内容中包含[IMAGE:<对应的base64字符串>]。若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增
+    """;
+    public static final String STUDENT_PROMPT = """
+    你是一个老师。请识别文本中已作答的试卷内容。输出JSON格式：
+    {
+      "subject": "学科名",
+      "questions": {"题号": "题目内容"},
+      "responses": {"题号": "回答内容"}
+    }
+    若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增
+    """;
+    public static final String MARKING_PROMPT = """
+    你是一个老师。请识别图中试卷内容并批改试卷。输入json1，json2和json3
+    json1包含题号到题目和学生答案的嵌套键值对。json2为包含坐标信息的学生作答试卷。
+    json2是一个列表，包含坐标信息，你需要推理并批改对应学生作答的部分。
+    json3为题号和答案的键值对，供批改参考
+    
+    输出JSON格式，包含两个字段：
+    {
+      "answerInfo": {
+        "题号": {
+          "question": "题目内容",
+          "answer": "回答内容",
+          "correctness": "true或false，代表该题正确性。",
+          "reason": "如果该题正确，则值为空，如果该题错误，则分析错误原因并将分析出的错因作为该字段的值。"
+        }
+      },
+      "markWithCoords": json2，保持该json格式不变，在列表的每一项可能为学生回答的json对象内添加新的字段，"correctness": true或false，代表该题正确性。
+    }
+    
+    若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增
+    """;
 
-            【科目】：%s
+    public static final String REPORT_PROMPT = """
+            你是一位专业的AI助教。请根据以下已批改试卷的数据及图片内容，生成一份详细的学习总结纸质报告。报告要求包含以下几部分
+
+            【科目】：
 
             【学生答题详情】：
-            %s
 
             【报告要求】：
             1. 分析学生在各个知识点上的掌握情况。
@@ -58,497 +84,267 @@ public class Constants {
             请直接输出报告正文，不要包含多余的开场白。在报告的结尾，不要输出\"报告完毕\"或相近意思的字，只需要以一条实线结尾即可
             """;
 
+    public static final String OCR_PROMPT = """
+    Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.
+    
+    1. Bbox format: [x1, y1, x2, y2]
+    
+    2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].
+    
+    3. Text Extraction & Formatting Rules:
+        - Picture: For the 'Picture' category, the text field should be omitted.
+        - Formula: Format its text as LaTeX.
+        - Table: Format its text as HTML.
+        - All Others (Text, Title, etc.): Format their text as Markdown.
+    
+    4. Constraints:
+        - The output text must be the original text from the image, with no translation.
+        - All layout elements must be sorted according to human reading order.
+    
+    5. Final Output: The entire output must be a single JSON object.
+    """;
+
     public static final String DOWNLOAD_PATH = Paths.get(System.getProperty("user.home"), "Downloads").toString();
-    public static final String OCR_PROMPT = "Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.\n" +
-            "\n" +
-            "1. Bbox format: [x1, y1, x2, y2]\n" +
-            "\n" +
-            "2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].\n" +
-            "\n" +
-            "3. Text Extraction & Formatting Rules:\n" +
-            "    - Picture: For the 'Picture' category, the text field should be omitted.\n" +
-            "    - Formula: Format its text as LaTeX.\n" +
-            "    - Table: Format its text as HTML.\n" +
-            "    - All Others (Text, Title, etc.): Format their text as Markdown.\n" +
-            "\n" +
-            "4. Constraints:\n" +
-            "    - The output text must be the original text from the image, with no translation.\n" +
-            "    - All layout elements must be sorted according to human reading order.\n" +
-            "\n" +
-            "5. Final Output: The entire output must be a single JSON object.";
 
     public static final String FONT_RESOURCE_PATH = "/fonts/simsun.ttf";
     public static final String FONT_FAMILY_NAME = "SimSun";
 
     // TODO: delete this when ocr is integrated
-    public static final String TEST_OCR_RESPONSE = "[\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      493,\n" +
-            "      131,\n" +
-            "      1158,\n" +
-            "      286\n" +
-            "    ],\n" +
-            "    \"category\": \"Title\",\n" +
-            "    \"text\": \"# 2023 北京朝阳初二(下)期末\\n## 道德与法治\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      321,\n" +
-            "      1488,\n" +
-            "      414\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"1. 北京时间2023年5月30日,神舟十六号载人飞船发射取得圆满成功。航天员乘组由景海鹏、朱杨柱、桂海潮3名航天员组成,这是我国( )\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      436,\n" +
-            "      483,\n" +
-            "      472\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"A. 首次实现空间交会对接\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      495,\n" +
-            "      480,\n" +
-            "      530\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"B. 首次多人多天载人飞行\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      552,\n" +
-            "      615,\n" +
-            "      588\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"C. 航天员乘组首次实现“太空会师”\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      611,\n" +
-            "      745,\n" +
-            "      646\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"D. 航天飞行工程师和载荷专家的首次太空飞行\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      669,\n" +
-            "      1169,\n" +
-            "      704\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"2. 八年级学生小红对照宪法内容梳理出如图。对此,以下理解正确的是( )\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      153,\n" +
-            "      728,\n" +
-            "      1312,\n" +
-            "      1120\n" +
-            "    ],\n" +
-            "    \"category\": \"Picture\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1145,\n" +
-            "      687,\n" +
-            "      1181\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"A. 宪法规定实现公民基本权利的保障措施\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1204,\n" +
-            "      888,\n" +
-            "      1239\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"B. 宪法与我们息息相关,我们的一生都离不开宪法的保护\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1261,\n" +
-            "      595,\n" +
-            "      1297\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"C. 宪法规定国家生活中的根本问题\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1320,\n" +
-            "      656,\n" +
-            "      1355\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"D. 一切权力属于人民是我国的宪法原则\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1378,\n" +
-            "      1198,\n" +
-            "      1413\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"3. 下面初中生彤彤一家人的行为,能够体现依法行使政治权利和自由的有( )\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1434,\n" +
-            "      616,\n" +
-            "      1468\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"①彤彤上课认真听讲,按时完成作业\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1491,\n" +
-            "      644,\n" +
-            "      1526\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"②哥哥将压岁钱存到银行,并获得利息\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1549,\n" +
-            "      879,\n" +
-            "      1584\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"③爸爸向人大代表反映小区增设新能源汽车充电桩的问题\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1607,\n" +
-            "      703,\n" +
-            "      1641\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"④妈妈参加了新一届朝阳区人大代表的选举\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1662,\n" +
-            "      249,\n" +
-            "      1697\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"A. ①②\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      468,\n" +
-            "      1662,\n" +
-            "      567,\n" +
-            "      1697\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"B. ①④\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      730,\n" +
-            "      1662,\n" +
-            "      830,\n" +
-            "      1697\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"C. ②③\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      993,\n" +
-            "      1662,\n" +
-            "      1093,\n" +
-            "      1697\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"D. ③④\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      147,\n" +
-            "      1720,\n" +
-            "      585,\n" +
-            "      1755\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"4. 如图中①、②两处应填( )\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      153,\n" +
-            "      1780,\n" +
-            "      1022,\n" +
-            "      2082\n" +
-            "    ],\n" +
-            "    \"category\": \"Picture\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      741,\n" +
-            "      2299,\n" +
-            "      911,\n" +
-            "      2333\n" +
-            "    ],\n" +
-            "    \"category\": \"Page-footer\",\n" +
-            "    \"text\": \"第1页/共12页\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      724,\n" +
-            "      131,\n" +
-            "      928,\n" +
-            "      185\n" +
-            "    ],\n" +
-            "    \"category\": \"Title\",\n" +
-            "    \"text\": \"参考答案\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      225,\n" +
-            "      315,\n" +
-            "      260\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"1.【答案】D\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      281,\n" +
-            "      1493,\n" +
-            "      487\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"【解析】2023年5月30日,搭载神舟十六号载人飞船的长征二号F运载火箭,在酒泉卫星发射中心点火升空,成功将航天员景海鹏、朱杨柱、桂海潮顺利送入太空。此次神舟十六号航天员乘组首次包含“航天驾驶员、航天飞行工程师、载荷专家”3种航天员类型,也是我国航天飞行工程师和载荷专家的首次太空飞行。故D符合题意;ABC不符合题意。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      509,\n" +
-            "      272,\n" +
-            "      543\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"故选：D。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      565,\n" +
-            "      805,\n" +
-            "      600\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"本题考查时事政治。具体涉及神舟十六号载人飞船。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      622,\n" +
-            "      1126,\n" +
-            "      657\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"解答该题要多关注时事,平时要注意养成关心国家大事的习惯,多了解时事。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      680,\n" +
-            "      311,\n" +
-            "      715\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"2.【答案】B\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      736,\n" +
-            "      1493,\n" +
-            "      885\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"【解析】分析漫画可知,体现了宪法与我们息息相关,我们的一生都离不开宪法的保护,宪法规定公民基本权利,公民行使权利要遵守宪法和法律,宪法规定公民基本义务,法定义务必须履行,维护宪法尊严就要捍卫宪法,勇于同违反宪法的行为作斗争,B是正确的选项;ACD不符合题意。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      906,\n" +
-            "      272,\n" +
-            "      941\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"故选：B。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      964,\n" +
-            "      1449,\n" +
-            "      999\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"本题考查了宪法是国家的根本法。宪法是国家的根本法，具有最高的法律效力，是治国安邦的总章程。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1021,\n" +
-            "      1461,\n" +
-            "      1111\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"本题要正确理解题意,只有理解题意,才能明确考查的知识点是宪法是国家的根本法,才能做出正确选择。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1135,\n" +
-            "      315,\n" +
-            "      1170\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"3.【答案】D\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1192,\n" +
-            "      1493,\n" +
-            "      1340\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"【解析】题干中,爸爸向人大代表反映小区增设新能源汽车充电桩的问,行使了监督权;妈妈参加了新一届朝阳区人大代表的选举,行使了选举权和被选举权,选举权和被选举权属于政治权利和自由,③④说法正确;①属于行使受教育权;②属于行使财产的收益权。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1362,\n" +
-            "      272,\n" +
-            "      1397\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"故选：D。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1419,\n" +
-            "      1493,\n" +
-            "      1509\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"本题考查正确行使政治权利。公民应当珍惜并正确行使民主政治权利，每个公民应该树立主人翁意识，珍惜宪法和法律赋予的各项政治权利及自由。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1531,\n" +
-            "      1331,\n" +
-            "      1566\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"本题属基础知识题，考查正确行使政治权利，根据教材知识，依据题意分析，选出正确答案。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1590,\n" +
-            "      315,\n" +
-            "      1624\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"4.【答案】D\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1646,\n" +
-            "      1493,\n" +
-            "      1795\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"【解析】我国是人民民主专政的国家，一切权力属于人民，人民选举代表组成各级人民代表大会，集中行使国家权力，再由人民代表大会产生行政、审判、检察、监察等机关，分别行使管理国家、维护社会秩序等权利，它们都对人大负责，受人大监督，D是正确的选项；ABC描述都不正确。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1816,\n" +
-            "      272,\n" +
-            "      1851\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"故选：D。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1873,\n" +
-            "      1493,\n" +
-            "      1964\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"本题考查了人民代表大会制度。人民代表大会制度是符合中国国情和实际、体现社会主义国家性质、保证人民当家作主、保障实现中华民族伟大复兴的好制度。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      1985,\n" +
-            "      1449,\n" +
-            "      2020\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"解答本题需明确考查的知识点是人民代表大会制度，在此基础上，结合分析各个说法，选出正确答案。\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      149,\n" +
-            "      2044,\n" +
-            "      315,\n" +
-            "      2079\n" +
-            "    ],\n" +
-            "    \"category\": \"Text\",\n" +
-            "    \"text\": \"5.【答案】A\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"bbox\": [\n" +
-            "      741,\n" +
-            "      2299,\n" +
-            "      910,\n" +
-            "      2334\n" +
-            "    ],\n" +
-            "    \"category\": \"Page-footer\",\n" +
-            "    \"text\": \"第7页/共12页\"\n" +
-            "  }\n" +
-            "]\n";
+    public static final String TEST_OCR_RESPONSE = """
+    [
+      {
+        "bbox": [493, 131, 1158, 286],
+        "category": "Title",
+        "text": "# 2023 北京朝阳初二(下)期末\\n## 道德与法治"
+      },
+      {
+        "bbox": [147, 321, 1488, 414],
+        "category": "Text",
+        "text": "1. 北京时间2023年5月30日,神舟十六号载人飞船发射取得圆满成功。航天员乘组由景海鹏、朱杨柱、桂海潮3名航天员组成,这是我国( )"
+      },
+      {
+        "bbox": [147, 436, 483, 472],
+        "category": "Text",
+        "text": "A. 首次实现空间交会对接"
+      },
+      {
+        "bbox": [147, 495, 480, 530],
+        "category": "Text",
+        "text": "B. 首次多人多天载人飞行"
+      },
+      {
+        "bbox": [147, 552, 615, 588],
+        "category": "Text",
+        "text": "C. 航天员乘组首次实现“太空会师”"
+      },
+      {
+        "bbox": [147, 611, 745, 646],
+        "category": "Text",
+        "text": "D. 航天飞行工程师 and 载荷专家的首次太空飞行"
+      },
+      {
+        "bbox": [147, 669, 1169, 704],
+        "category": "Text",
+        "text": "2. 八年级学生小红对照宪法内容梳理出如图。对此,以下理解正确的是( )"
+      },
+      {
+        "bbox": [153, 728, 1312, 1120],
+        "category": "Picture"
+      },
+      {
+        "bbox": [147, 1145, 687, 1181],
+        "category": "Text",
+        "text": "A. 宪法规定实现公民基本权利的保障措施"
+      },
+      {
+        "bbox": [147, 1204, 888, 1239],
+        "category": "Text",
+        "text": "B. 宪法与我们息息相关,我们的一生都离不开宪法的保护"
+      },
+      {
+        "bbox": [147, 1261, 595, 1297],
+        "category": "Text",
+        "text": "C. 宪法规定国家生活中的根本问题"
+      },
+      {
+        "bbox": [147, 1320, 656, 1355],
+        "category": "Text",
+        "text": "D. 一切权力属于人民是我国的宪法原则"
+      },
+      {
+        "bbox": [147, 1378, 1198, 1413],
+        "category": "Text",
+        "text": "3. 下面初中生彤彤一家人的行为,能够体现依法行使政治权利和自由的有( )"
+      },
+      {
+        "bbox": [147, 1434, 616, 1468],
+        "category": "Text",
+        "text": "①彤彤上课认真听讲,按时完成作业"
+      },
+      {
+        "bbox": [147, 1491, 644, 1526],
+        "category": "Text",
+        "text": "②哥哥将压岁钱存到银行,并获得利息"
+      },
+      {
+        "bbox": [147, 1549, 879, 1584],
+        "category": "Text",
+        "text": "③爸爸向人大代表反映小区增设新能源汽车充电桩的问题"
+      },
+      {
+        "bbox": [147, 1607, 703, 1641],
+        "category": "Text",
+        "text": "④妈妈参加了新一届朝阳区人大代表的选举"
+      },
+      {
+        "bbox": [147, 1662, 249, 1697],
+        "category": "Text",
+        "text": "A. ①②"
+      },
+      {
+        "bbox": [468, 1662, 567, 1697],
+        "category": "Text",
+        "text": "B. ①④"
+      },
+      {
+        "bbox": [730, 1662, 830, 1697],
+        "category": "Text",
+        "text": "C. ②③"
+      },
+      {
+        "bbox": [993, 1662, 1093, 1697],
+        "category": "Text",
+        "text": "D. ③④"
+      },
+      {
+        "bbox": [147, 1720, 585, 1755],
+        "category": "Text",
+        "text": "4. 如图中①、②两处应填( )"
+      },
+      {
+        "bbox": [153, 1780, 1022, 2082],
+        "category": "Picture"
+      },
+      {
+        "bbox": [741, 2299, 911, 2333],
+        "category": "Page-footer",
+        "text": "第1页/共12页"
+      },
+      {
+        "bbox": [724, 131, 928, 185],
+        "category": "Title",
+        "text": "参考答案"
+      },
+      {
+        "bbox": [149, 225, 315, 260],
+        "category": "Text",
+        "text": "1.【答案】D"
+      },
+      {
+        "bbox": [149, 281, 1493, 487],
+        "category": "Text",
+        "text": "【解析】2023年5月30日,搭载神舟十六号载人飞船的长征二号F运载火箭...故D符合题意;ABC不符合题意。"
+      },
+      {
+        "bbox": [149, 509, 272, 543],
+        "category": "Text",
+        "text": "故选：D。"
+      },
+      {
+        "bbox": [149, 565, 805, 600],
+        "category": "Text",
+        "text": "本题考查时事政治。具体涉及神舟十六号载人飞船。"
+      },
+      {
+        "bbox": [149, 622, 1126, 657],
+        "category": "Text",
+        "text": "解答该题要多关注时事,平时要注意养成关心国家大事的习惯,多了解时事。"
+      },
+      {
+        "bbox": [149, 680, 311, 715],
+        "category": "Text",
+        "text": "2.【答案】B"
+      },
+      {
+        "bbox": [149, 736, 1493, 885],
+        "category": "Text",
+        "text": "【解析】分析漫画可知,体现了宪法与我们息息相关...B是正确的选项;ACD不符合题意。"
+      },
+      {
+        "bbox": [149, 906, 272, 941],
+        "category": "Text",
+        "text": "故选：B。"
+      },
+      {
+        "bbox": [149, 964, 1449, 999],
+        "category": "Text",
+        "text": "本题考查了宪法是国家的根本法。宪法是国家的根本法，具有最高的法律效力，是治国安邦的总章程。"
+      },
+      {
+        "bbox": [149, 1021, 1461, 1111],
+        "category": "Text",
+        "text": "本题要正确理解题意,只有理解题意...才能做出正确选择。"
+      },
+      {
+        "bbox": [149, 1135, 315, 1170],
+        "category": "Text",
+        "text": "3.【答案】D"
+      },
+      {
+        "bbox": [149, 1192, 1493, 1340],
+        "category": "Text",
+        "text": "【解析】题干中,爸爸向人大代表反映小区增设新能源汽车充电桩的问题...③④说法正确;①属于行使受教育权;②属于行使财产的收益权。"
+      },
+      {
+        "bbox": [149, 1362, 272, 1397],
+        "category": "Text",
+        "text": "故选：D。"
+      },
+      {
+        "bbox": [149, 1419, 1493, 1509],
+        "category": "Text",
+        "text": "本题考查正确行使政治权利。公民应当珍惜并正确行使民主政治权利..."
+      },
+      {
+        "bbox": [149, 1531, 1331, 1566],
+        "category": "Text",
+        "text": "本题属基础知识题，考查正确行使政治权利，根据教材知识，依据题意分析，选出正确答案。"
+      },
+      {
+        "bbox": [149, 1590, 315, 1624],
+        "category": "Text",
+        "text": "4.【答案】D"
+      },
+      {
+        "bbox": [149, 1646, 1493, 1795],
+        "category": "Text",
+        "text": "【解析】我国是人民民主专政的国家...D是正确的选项；ABC描述都不正确。"
+      },
+      {
+        "bbox": [149, 1816, 272, 1851],
+        "category": "Text",
+        "text": "故选：D。"
+      },
+      {
+        "bbox": [149, 1873, 1493, 1964],
+        "category": "Text",
+        "text": "本题考查了人民代表大会制度。"
+      },
+      {
+        "bbox": [149, 1985, 1449, 2020],
+        "category": "Text",
+        "text": "解答本题需明确考查的知识点是人民代表大会制度，在此基础上，结合分析各个说法，选出正确答案。"
+      },
+      {
+        "bbox": [149, 2044, 315, 2079],
+        "category": "Text",
+        "text": "5.【答案】A"
+      },
+      {
+        "bbox": [741, 2299, 910, 2334],
+        "category": "Page-footer",
+        "text": "第7页/共12页"
+      }
+    ]
+    """;
 }

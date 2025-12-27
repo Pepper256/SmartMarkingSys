@@ -46,8 +46,8 @@ public class AutoMarkingUseCaseTest {
 
             HashMap<String, String> responses = new HashMap<>();
             responses.put("1", "D");
-            responses.put("2", "C");
-            responses.put("3", "D");
+            responses.put("2", "B");
+            responses.put("3", "C");
             responses.put("4", "D");
 
             return new StudentPaper(
