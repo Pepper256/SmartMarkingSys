@@ -25,28 +25,33 @@ public class ReportDao implements GenerateReportDataAccessInterface,
         GenerateStudentReportDataAccessInterface,
         ExportReportDataAccessInterface {
 
-    @Override
-    public void storeReport(Report report) {
-        Objects.requireNonNull(report, "report");
-        DatabaseManager.initSchemaIfNeeded();
+   @Override
+public void storeReport(Report report) {
+    Objects.requireNonNull(report, "report");
+    DatabaseManager.initSchemaIfNeeded();
 
-        String sql = "INSERT OR REPLACE INTO report (id, exam_paper_id, content, raw_json, created_at) " +
-                "VALUES (?, ?, ?, ?, ?)";
+    String sql = "INSERT OR REPLACE INTO report " +
+            "(id, exam_paper_id, student_paper_id, content, raw_json, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?)";
 
-        long now = System.currentTimeMillis();
+    long now = System.currentTimeMillis();
 
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, report.getId());
-            ps.setString(2, report.getExamPaperId());
-            ps.setString(3, report.getContent());
-            ps.setString(4, report.toJsonString());
-            ps.setLong(5, now);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException("保存报告失败: " + e.getMessage(), e);
-        }
+    try (Connection conn = DatabaseManager.getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        ps.setString(1, report.getId());
+        ps.setString(2, report.getExamPaperId());
+        ps.setString(3, report.getStudentPaperId());
+        ps.setString(4, report.getContent());
+        ps.setString(5, report.toJsonString());
+        ps.setLong(6, now);
+
+        ps.executeUpdate();
+    } catch (SQLException e) {
+        throw new RuntimeException("保存报告失败: " + e.getMessage(), e);
     }
+}
+
 
     @Override
     public Report getReportByReportId(String reportId) {

@@ -25,7 +25,7 @@ replay_pid*
 
 # Intellij build files
 .idea/*
-src/main/resources/*
+src/main/resources/config.properties
 
 # Runtime SQLite database files (generated)
 *.db
