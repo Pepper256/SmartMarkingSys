@@ -1,11 +1,10 @@
-package use_case.generate_student_report;
+package use_case.generate_report;
 
 import app.Main;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ibm.icu.util.Output;
 import entities.MarkedStudentPaper;
 import entities.Report;
 import org.apache.http.client.methods.HttpPost;
@@ -15,44 +14,46 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import use_case.Constants;
-import use_case.dto.GenerateStudentReportInputData;
+import use_case.dto.GenerateReportInputData;
+import use_case.dto.GenerateReportOutputData;
 import use_case.dto.GenerateStudentReportOutputData;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
-public class GenerateStudentReportUseCase implements GenerateStudentReportInputBoundary {
+public class GenerateReportUseCase implements GenerateReportInputBoundary{
 
-    private final GenerateStudentReportOutputBoundary outputBoundary;
-    private final GenerateStudentReportDataAccessInterface dao;
+    private final GenerateReportOutputBoundary outputBoundary;
+    private final GenerateReportDataAccessInterface dao;
     private final ObjectMapper objectMapper;
 
-    public GenerateStudentReportUseCase(GenerateStudentReportOutputBoundary outputBoundary,
-                                        GenerateStudentReportDataAccessInterface dao) {
+    public GenerateReportUseCase(GenerateReportOutputBoundary outputBoundary,
+                                 GenerateReportDataAccessInterface dao) {
         this.outputBoundary = outputBoundary;
         this.dao = dao;
-        this.objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper();
     }
 
     @Override
-    public void execute(GenerateStudentReportInputData inputData) {
-        String markedStudentPaperId = inputData.getMarkedStudentPaperId();
-        MarkedStudentPaper paper = dao.getMarkedStudentPaperById(markedStudentPaperId);
+    public void execute(GenerateReportInputData inputData) {
+        String examPaperId = inputData.getExamPaperId();
 
-        if (paper == null) {
-            outputBoundary.prepareFailView(new GenerateStudentReportOutputData(""));
-            return;
+        List<MarkedStudentPaper> markedStudentPapers = dao.getMarkedStudentPapersByExamPaperId(examPaperId);
+
+        if(markedStudentPapers.isEmpty()) {
+            outputBoundary.prepareFailView(new GenerateReportOutputData(""));
+        }
+
+        String finalPrompt;
+
+        List<String> questionDetails = new ArrayList<>();
+
+        for(MarkedStudentPaper paper : markedStudentPapers) {
+            questionDetails.add(formatQuestionDetails(paper));
         }
 
         try {
-            // 1. 整理题目数据
-            String questionDetails = formatQuestionDetails(paper);
-
-            // 2. 组装最终 Prompt
-            String finalPrompt = Constants.REPORT_PROMPT + "\n以下为试卷内容\n" + questionDetails;
+            finalPrompt = Constants.REPORT_PROMPT + "\n以下本次考试学生的批改后的试卷内容\n" + objectMapper.writeValueAsString(questionDetails);
 
             // 3. 发起原生 HTTP 请求调用 Qwen-VL-Flash
             String generatedReport = callQwenVlFlashApi(finalPrompt);
@@ -60,19 +61,15 @@ public class GenerateStudentReportUseCase implements GenerateStudentReportInputB
             // 4. 创建 Report 对象并持久化
             Report report = new Report(
                     "report_" + UUID.randomUUID().toString(),
-                    paper.getExamPaperId(),
-                    paper.getId(),
+                    examPaperId,
+                    null,
                     generatedReport
             );
             dao.storeReport(report);
-
-            // 5. 调用成功视图
-            GenerateStudentReportOutputData outputData = new GenerateStudentReportOutputData(generatedReport);
-            outputBoundary.prepareSuccessView(outputData);
-
-        } catch (Exception e) {
-            // 捕获所有可能的网络、解析或逻辑异常
-            outputBoundary.prepareFailView(new GenerateStudentReportOutputData(""));
+        }
+        catch (Exception e) {
+            System.out.println("api调用失败");
+            outputBoundary.prepareFailView(new GenerateReportOutputData(""));
         }
     }
 

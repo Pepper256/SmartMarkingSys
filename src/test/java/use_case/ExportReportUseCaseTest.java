@@ -32,6 +32,7 @@ public class ExportReportUseCaseTest {
             return new Report(
                     "1",
                     "1",
+                    "1",
                     "# 2025年春季学期第二次阶段性测评报告\n" +
                             "\n" +
                             "**学生姓名：** 周思齐  \n" +
