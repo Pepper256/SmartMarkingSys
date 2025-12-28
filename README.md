@@ -6,6 +6,22 @@
 且在每一个错题前要生成学生的错因。在批改完成以后，系统需要生成错题报告，
 指出高频错题和易错点整理，同时该报告需要可以打印
 
+## 项目依赖：
+
+最低java版本：java17
+   
+   1. org.junit.jupiter junit-jupiter 5.10.2
+   2. org.apache.pdfbox pdfbox 2.0.35
+   3. com.fasterxml.jackson.core jackson-databind 2.15.2
+   4. com.alibaba fastjson 1.2.83
+   5. org.apache.httpcomponents httpclient 4.5.13
+   6. com.vladsch.flexmark flexmark-all 0.64.8
+   7. com.openhtmltopdf openhtmltopdf-core 1.0.10
+   8. com.openhtmltopdf openhtmltopdf-pdfbox 1.0.10
+   9. org.jsoup jsoup 1.15.4
+
+   详情见pom.xml
+
 ## 数据库（SQLite）
 
 本项目使用 **SQLite** 作为本地数据库，默认数据库文件为：
@@ -79,20 +95,6 @@
    (2) 用户指定保存路径
 
    (3) 系统生成报告的pdf文件，并保存到指定的路径
-
-## 项目依赖：
-   
-   1. org.junit.jupiter junit-jupiter 5.10.2
-   2. org.apache.pdfbox pdfbox 2.0.35
-   3. com.fasterxml.jackson.core jackson-databind 2.15.2
-   4. com.alibaba fastjson 1.2.83
-   5. org.apache.httpcomponents httpclient 4.5.13
-   6. com.vladsch.flexmark flexmark-all 0.64.8
-   7. com.openhtmltopdf openhtmltopdf-core 1.0.10
-   8. com.openhtmltopdf openhtmltopdf-pdfbox 1.0.10
-   9. org.jsoup jsoup 1.15.4
-
-   详情见pom.xml
 
 ## 补充说明
 
