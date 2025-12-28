@@ -19,7 +19,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
 
@@ -73,7 +72,7 @@ public class ApiUtil {
         }
     }
 
-    public static String getLLMResponseFromImage(BufferedImage image, String prompt) {
+    public static String getOCRResponseFromImage(BufferedImage image, String prompt) {
         ObjectMapper mapper = new ObjectMapper();
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {

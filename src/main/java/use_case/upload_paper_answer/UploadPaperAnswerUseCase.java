@@ -4,9 +4,6 @@ import app.Main;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import entities.AnswerPaper;
 import entities.ExamPaper;
 import org.apache.http.client.methods.HttpPost;
@@ -15,23 +12,24 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import use_case.Constants;
 import use_case.dto.UploadPaperAnswerInputData;
 import use_case.dto.UploadPaperAnswerOutputData;
 import use_case.util.ApiUtil;
 import use_case.util.FileUtil;
+import use_case.util.LayoutConvertUtil;
 import use_case.util.ThreadUtil;
 
 public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
@@ -50,6 +48,15 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         DocType(String prefix, String apiType) {
             this.prefix = prefix;
             this.apiType = apiType;
+        }
+    }
+
+    private static class PageMdResult {
+        String markdown;
+        int pageIdx;
+        public PageMdResult(int pageIdx, String markdown) {
+            this.pageIdx = pageIdx;
+            this.markdown = markdown;
         }
     }
 
@@ -94,9 +101,8 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
         String extension = FileUtil.getFileExtension(filePath).toLowerCase();
 
-        // 1. 定义存储 OCR 文本结果的任务列表 (不再直接存储 API 返回的 JSONObject)
-        List<CompletableFuture<String>> ocrFutures = new ArrayList<>();
-
+        // 1. 定义存储 Markdown 结果的任务列表
+        List<CompletableFuture<PageMdResult>> mdFutures = new ArrayList<>();
         if ("pdf".equals(extension)) {
             int pageCount;
             try (PDDocument metaDoc = PDDocument.load(file)) {
@@ -105,51 +111,78 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
 
             for (int i = 0; i < pageCount; i++) {
                 final int pageIdx = i;
-                ocrFutures.add(CompletableFuture.supplyAsync(() -> {
-                    try (PDDocument document = PDDocument.load(file)) {
+                mdFutures.add(CompletableFuture.supplyAsync(() -> {
+                    try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
                         PDFRenderer renderer = new PDFRenderer(document);
-                        BufferedImage image = renderer.renderImageWithDPI(pageIdx, 144);
+                        BufferedImage originImage = renderer.renderImageWithDPI(pageIdx, 144);
                         try {
-                            if (image == null) throw new RuntimeException("渲染为空");
-                            // 仅执行 OCR
-                            return ocrProcess(image);
+                            if (originImage == null) throw new RuntimeException("渲染为空");
+
+                            // --- 核心转换流程 ---
+                            // A. 调用 OCR 获取原始 JSON 字符串
+                            String rawOcrJson = ocrProcess(originImage);
+                            // B. 计算缩放后的输入尺寸
+                            int[] inputDims = LayoutConvertUtil.getResizedDimensions(originImage);
+                            // C. 坐标还原
+                            List<Map<String, Object>> rawCells = LayoutConvertUtil.resultToCells(rawOcrJson);
+                            List<Map<String, Object>> processedCells = LayoutConvertUtil.postProcessCells(
+                                    originImage, rawCells, inputDims[1], inputDims[0]);
+                            // D. 转换为当前页的 Markdown
+                            String pageMd = LayoutConvertUtil.layoutJson2Md(originImage, processedCells, "text", true);
+
+                            return new PageMdResult(pageIdx, pageMd);
                         } finally {
-                            if (image != null) image.flush();
+                            if (originImage != null) originImage.flush();
                         }
                     } catch (Exception e) {
-                        throw new RuntimeException("第 " + pageIdx + " 页 OCR 失败", e);
+                        throw new RuntimeException("第 " + pageIdx + " 页处理失败", e);
                     }
                 }, ThreadUtil.getExecutor()));
             }
         } else if ("png".equals(extension) || "jpg".equals(extension)) {
-            BufferedImage image = ImageIO.read(file);
-            ocrFutures.add(CompletableFuture.supplyAsync(() -> {
+            BufferedImage originImage = ImageIO.read(file);
+            mdFutures.add(CompletableFuture.supplyAsync(() -> {
                 try {
-                    return ocrProcess(image);
+                    int[] inputDims = LayoutConvertUtil.getResizedDimensions(originImage);
+                    String rawOcrJson = ocrProcess(originImage);
+                    List<Map<String, Object>> rawCells = LayoutConvertUtil.resultToCells(rawOcrJson);
+                    List<Map<String, Object>> processedCells = LayoutConvertUtil.postProcessCells(
+                            originImage, rawCells, inputDims[1], inputDims[0]);
+                    String pageMd = LayoutConvertUtil.layoutJson2Md(originImage, processedCells, "text", true);
+                    return new PageMdResult(0, pageMd);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
+                } finally {
+                    if (originImage != null) originImage.flush();
                 }
             }, ThreadUtil.getExecutor()));
         }
 
-        // 2. 等待所有页面的 OCR 完成
-        CompletableFuture.allOf(ocrFutures.toArray(new CompletableFuture[0])).join();
+        // 2. 等待所有页面的 Markdown 转换完成
+        CompletableFuture.allOf(mdFutures.toArray(new CompletableFuture[0])).join();
 
-        // 3. 汇总所有 OCR 结果
-        StringBuilder fullOcrText = new StringBuilder();
-        for (int i = 0; i < ocrFutures.size(); i++) {
-            fullOcrText.append("--- 第 ").append(i + 1).append(" 页内容 ---\n");
-            fullOcrText.append(ocrFutures.get(i).get()).append("\n\n");
+        // 3. 按页码顺序汇总 Markdown 内容
+        // 使用 stream 排序确保多页 PDF 顺序正确
+        List<PageMdResult> results = mdFutures.stream()
+                .map(CompletableFuture::join)
+                .sorted(Comparator.comparingInt(r -> r.pageIdx))
+                .toList();
+
+        StringBuilder fullMarkdownContent = new StringBuilder();
+        for (PageMdResult res : results) {
+            fullMarkdownContent.append("\n");
+            fullMarkdownContent.append(res.markdown).append("\n\n");
         }
 
-        // 4. 构造统一的 Prompt 并调用一次 API
+        // 4. 构造包含 Markdown 内容的 Prompt
         String basePrompt = "answer".equals(docType.apiType) ? Constants.ANSWER_PROMPT : Constants.EXAM_PROMPT;
-        String combinedPrompt = basePrompt + "\n\n以下是整份文档的 OCR 识别结果，请统一处理：\n" + fullOcrText.toString();
+        String combinedPrompt = basePrompt + "\n\n以下是整份文档的 Markdown 格式识别结果（包含图片和公式），请根据此内容生成结构化 JSON：\n"
+                + fullMarkdownContent;
 
+        // 此时 API 接收到的是高质量的 Markdown（含图片 Base64 和 LaTeX）
         JSONObject apiResponse = callQwenVlApi(combinedPrompt);
 
         // 5. 组装最终结果
-        // 因为现在只有一次 API 调用，我们可以简化处理，或者兼容原有的 assembleResults 逻辑
         return finalizeResult(docId, apiResponse, docType);
     }
 
@@ -206,7 +239,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
-        return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
+        return ApiUtil.getOCRResponseFromImage(image, Constants.OCR_PROMPT);
 //        return Constants.TEST_OCR_RESPONSE;
     }
 }

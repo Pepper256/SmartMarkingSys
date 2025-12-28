@@ -69,4 +69,25 @@ public class StudentPaperDaoSqliteTest {
         assertNotNull(loaded);
         assertEquals(answer, loaded);
     }
+
+    @Test
+    void getExamPaperById_roundTrip() {
+        ExamAnswerInfoDao examDao = new ExamAnswerInfoDao();
+
+        HashMap<String, String> qs = new HashMap<String, String>();
+        qs.put("1", "Q1");
+
+        HashMap<String, String> ans = new HashMap<String, String>();
+        ans.put("1", "A1");
+
+        entities.ExamPaper exam = new entities.ExamPaper("EXAM_X", "Math", qs, "ANS_X");
+        entities.AnswerPaper answer = new entities.AnswerPaper("ANS_X", "EXAM_X", "Math", qs, ans);
+
+        examDao.storeExamAnswer(exam, answer);
+
+        entities.ExamPaper loaded = dao.getExamPaperById("EXAM_X");
+        assertNotNull(loaded);
+        assertEquals(exam, loaded);
+    }
+
 }

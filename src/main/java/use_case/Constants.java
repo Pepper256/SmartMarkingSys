@@ -4,7 +4,7 @@ import java.nio.file.Paths;
 
 public class Constants {
 
-    public static final String API_MODEL = "qwen3-vl-flash";
+    public static final String API_MODEL = "qwen3-vl-plus";
     public static final String EXTRACT_STUDENT_API_MODEL = "qwen3-vl-plus";
 
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
@@ -38,9 +38,11 @@ public class Constants {
             \\"20（1）\\":\\"相关内容\\",
             \\"20(2)\\":\\"相关内容\\"
             ...
+            如果没有指明小题题号归属于哪一道大题，你需要自己推理出正确的大题题号。
+            注意，该试卷未做答，试卷上没有学生的答案。对于选择题，需要把选项也纳入问题中。
             """;
     public static final String EXAM_PROMPT = """
-            你是一个老师。请识别图中试卷内容。输出JSON格式：
+            你是一个老师。请识别图中的试卷内容。输出JSON格式：
             {
               "subject": "学科名",
               "questions": {"题号": "题目内容"}
@@ -53,22 +55,39 @@ public class Constants {
             \\"20（2）\\":\\"相关内容\\"
             ...
             如果没有指明小题题号归属于哪一道大题，你需要自己推理出正确的大题题号。
+            注意，该试卷未做答，试卷上没有学生的答案。对于选择题，需要把选项也纳入问题中。
             """;
     public static final String STUDENT_PROMPT = """
-            你是一个老师。请识别文本中已作答的试卷内容。输出JSON格式：
-            {
-              "subject": "学科名",
-              "questions": {"题号": "题目内容"},
-              "responses": {"题号": "回答内容"}
-            }
-            若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增
-            如果题目中，大题内出现小题，保存此小题为大题题号拼接小题题号的形式，不要出现嵌套json对象。
-            假设一道题目的题号为20（1）和20（2），表示第20道大题的第1和第2小题，题号保存的示例：
-            ...
-            \\"20（1）\\":\\"相关答案\\",
-            \\"20（2）\\":\\"相关答案\\"
-            ...
-            如果没有指明小题题号归属于哪一道大题，你需要自己推理出正确的大题题号。
+            # Role
+           你是一个没有任何知识储备的“文本差异扫描仪”。你的唯一功能是：找出 [Student_Work_Markdown] 中比 [Blank_Template_JSON] 多出的物理字符。
+           
+           # Workflow (严格执行)
+           1. **定位题干**：在 [Student_Work_Markdown] 中找到与 [Blank_Template_JSON] 文本描述完全一致的区域。
+           2. **物理比对**：
+              - 逐字比对两个版本的差异。
+              - **如果差异为 0**（即学生版没写字，只有模板自带的括号、下划线、空格）：该题 responses 必须为 ""。
+              - **如果差异 > 0**：仅提取多出来的字符。
+           3. **禁止推理**：严禁根据你的理解去填写答案。哪怕题目是“1+1=”，只要学生版对应位置没写数字，你必须返回 ""。
+           
+           # Rules
+           - **拼接题号**：大题号与小题号直接拼接，严禁分隔符（如 "19(1)"）。
+           - **扁平结构**：JSON 禁止嵌套。
+           - **输出约束**：仅输出纯 JSON，严禁任何解释语。
+           
+           # JSON Schema
+           {
+             "subject": "学科名",
+             "responses": {
+               "拼接题号": "提取的增量内容或空字符串"
+             }
+           }
+           
+           # Input Data
+           [Blank_Template_JSON]
+           {{blank_template}}
+           
+           [Student_Work_Markdown]
+           {{student_work}}
             """;
     public static final String MARKING_PROMPT = """
                     你是一个老师。请识别图中试卷内容并批改试卷。输入json1，json2和json3
@@ -379,4 +398,127 @@ public class Constants {
       }
     ]
     """;
+
+    public static final String TEST_STUDENT_OCR_RESPONSE = """
+            [
+              {
+                "bbox": [493, 131, 1158, 286],
+                "category": "Title",
+                "text": "# 2023 北京朝阳初二(下)期末\\n## 道德与法治"
+              },
+              {
+                "bbox": [147, 321, 1488, 414],
+                "category": "Text",
+                "text": "1. 北京时间2023年5月30日,神舟十六号载人飞船发射取得圆满成功。航天员乘组由景海鹏、朱杨柱、桂海潮3名航天员组成,这是我国(A)"
+              },
+              {
+                "bbox": [147, 436, 483, 472],
+                "category": "Text",
+                "text": "A. 首次实现空间交会对接"
+              },
+              {
+                "bbox": [147, 495, 480, 530],
+                "category": "Text",
+                "text": "B. 首次多人多天载人飞行"
+              },
+              {
+                "bbox": [147, 552, 615, 588],
+                "category": "Text",
+                "text": "C. 航天员乘组首次实现“太空会师”"
+              },
+              {
+                "bbox": [147, 611, 745, 646],
+                "category": "Text",
+                "text": "D. 航天飞行工程师 and 载荷专家的首次太空飞行"
+              },
+              {
+                "bbox": [147, 669, 1169, 704],
+                "category": "Text",
+                "text": "2. 八年级学生小红对照宪法内容梳理出如图。对此,以下理解正确的是(B)"
+              },
+              {
+                "bbox": [153, 728, 1312, 1120],
+                "category": "Picture"
+              },
+              {
+                "bbox": [147, 1145, 687, 1181],
+                "category": "Text",
+                "text": "A. 宪法规定实现公民基本权利的保障措施"
+              },
+              {
+                "bbox": [147, 1204, 888, 1239],
+                "category": "Text",
+                "text": "B. 宪法与我们息息相关,我们的一生都离不开宪法的保护"
+              },
+              {
+                "bbox": [147, 1261, 595, 1297],
+                "category": "Text",
+                "text": "C. 宪法规定国家生活中的根本问题"
+              },
+              {
+                "bbox": [147, 1320, 656, 1355],
+                "category": "Text",
+                "text": "D. 一切权力属于人民是我国的宪法原则"
+              },
+              {
+                "bbox": [147, 1378, 1198, 1413],
+                "category": "Text",
+                "text": "3. 下面初中生彤彤一家人的行为,能够体现依法行使政治权利和自由的有(C)"
+              },
+              {
+                "bbox": [147, 1434, 616, 1468],
+                "category": "Text",
+                "text": "①彤彤上课认真听讲,按时完成作业"
+              },
+              {
+                "bbox": [147, 1491, 644, 1526],
+                "category": "Text",
+                "text": "②哥哥将压岁钱存到银行,并获得利息"
+              },
+              {
+                "bbox": [147, 1549, 879, 1584],
+                "category": "Text",
+                "text": "③爸爸向人大代表反映小区增设新能源汽车充电桩的问题"
+              },
+              {
+                "bbox": [147, 1607, 703, 1641],
+                "category": "Text",
+                "text": "④妈妈参加了新一届朝阳区人大代表的选举"
+              },
+              {
+                "bbox": [147, 1662, 249, 1697],
+                "category": "Text",
+                "text": "A. ①②"
+              },
+              {
+                "bbox": [468, 1662, 567, 1697],
+                "category": "Text",
+                "text": "B. ①④"
+              },
+              {
+                "bbox": [730, 1662, 830, 1697],
+                "category": "Text",
+                "text": "C. ②③"
+              },
+              {
+                "bbox": [993, 1662, 1093, 1697],
+                "category": "Text",
+                "text": "D. ③④"
+              },
+              {
+                "bbox": [147, 1720, 585, 1755],
+                "category": "Text",
+                "text": "4. 如图中①、②两处应填(D)"
+              },
+              {
+                "bbox": [153, 1780, 1022, 2082],
+                "category": "Picture"
+              },
+              {
+                "bbox": [741, 2299, 911, 2333],
+                "category": "Page-footer",
+                "text": "第1页/共12页"
+              }
+            ]
+            """;
 }
