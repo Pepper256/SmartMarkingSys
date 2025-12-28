@@ -194,7 +194,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         httpPost.setHeader("Content-Type", "application/json");
 
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "qwen3-vl-flash"); // 或使用 qwen3-vl-max
+        requestBody.put("model", Constants.API_MODEL); // 或使用 qwen3-vl-max
 
         JSONObject message = new JSONObject();
         message.put("role", "user");

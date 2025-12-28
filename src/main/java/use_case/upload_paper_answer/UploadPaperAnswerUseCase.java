@@ -169,7 +169,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         httpPost.setHeader("Content-Type", "application/json");
 
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "qwen3-vl-flash");
+        requestBody.put("model", Constants.API_MODEL);
 
         JSONObject message = new JSONObject();
         message.put("role", "user");
