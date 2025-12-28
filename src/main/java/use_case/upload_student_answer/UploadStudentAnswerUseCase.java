@@ -4,13 +4,9 @@ import app.Main;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import entities.ExamPaper;
 import entities.StudentPaper;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
@@ -25,11 +21,11 @@ import use_case.dto.UploadStudentAnswerInputData;
 import use_case.dto.UploadStudentAnswerOutputData;
 import use_case.util.ApiUtil;
 import use_case.util.FileUtil;
+import use_case.util.LayoutConvertUtil;
 import use_case.util.ThreadUtil;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -46,6 +42,22 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
                                       UploadStudentAnswerOutputBoundary outputBoundary) {
         this.dao = dao;
         this.outputBoundary = outputBoundary;
+    }
+
+    private static class PageResult {
+        public BufferedImage originImage;
+        public List<Map<String, Object>> rawCells;
+        public int inputWidth;
+        public int inputHeight;
+        public int pageIdx;
+
+        public PageResult(BufferedImage originImage, List<Map<String, Object>> rawCells, int inputWidth, int inputHeight, int pageIdx) {
+            this.originImage = originImage;
+            this.rawCells = rawCells;
+            this.inputWidth = inputWidth;
+            this.inputHeight = inputHeight;
+            this.pageIdx = pageIdx;
+        }
     }
 
     @Override
@@ -87,8 +99,10 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
         String extension = FileUtil.getFileExtension(path).toLowerCase();
 
-        // 步骤 1: 并发执行 OCR 识别（只识图，不请求 API）
-        List<CompletableFuture<String>> ocrFutures = new ArrayList<>();
+        StringJoiner fullOcrContent = new StringJoiner("");
+
+        // 步骤 1: 并发执行 OCR（返回 PageResult 对象）
+        List<CompletableFuture<PageResult>> ocrFutures = new ArrayList<>();
 
         if ("pdf".equals(extension)) {
             int pageCount;
@@ -99,51 +113,80 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
             for (int i = 0; i < pageCount; i++) {
                 final int pageIdx = i;
                 ocrFutures.add(CompletableFuture.supplyAsync(() -> {
-                    // 使用临时文件模式加载，防止大 PDF 内存溢出
                     try (PDDocument document = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())) {
                         PDFRenderer renderer = new PDFRenderer(document);
-                        BufferedImage image = renderer.renderImageWithDPI(pageIdx, 144);
-                        try {
-                            if (image == null) throw new RuntimeException("第 " + pageIdx + " 页渲染为空");
-                            return ocrProcess(image); // 仅返回 OCR 文本内容
-                        } finally {
-                            if (image != null) image.flush();
-                        }
+                        // 1. 获取原始图像 (originImage)
+                        BufferedImage originImage = renderer.renderImageWithDPI(pageIdx, 144);
+                        if (originImage == null) throw new RuntimeException("第 " + pageIdx + " 页渲染为空");
+
+                        // 2. 获取模型输入的宽高 (inputWidth/Height)
+                        int[] inputDims = LayoutConvertUtil.getResizedDimensions(originImage);
+
+                        // 3. 调用大模型 API 获得原始 JSON String 并解析为 List<Map>
+                        String ocrResult = ocrProcess(originImage);
+
+                        fullOcrContent.add(ocrResult); // 保留ocr原始生成数据
+
+                        List<Map<String, Object>> rawCells = LayoutConvertUtil.resultToCells(ocrResult);
+
+                        return new PageResult(originImage, rawCells, inputDims[1], inputDims[0], pageIdx);
                     } catch (Exception e) {
                         throw new RuntimeException("处理第 " + pageIdx + " 页失败", e);
                     }
                 }, ThreadUtil.getExecutor()));
             }
-        } else if ("png".equals(extension) || "jpg".equals(extension)) {
-            BufferedImage image = ImageIO.read(file);
-            if (image == null) throw new IOException("无法解码图片");
+        } else if (List.of("png", "jpg", "jpeg").contains(extension)) {
+            BufferedImage originImage = ImageIO.read(file);
+            if (originImage == null) throw new IOException("无法解码图片");
+
             ocrFutures.add(CompletableFuture.supplyAsync(() -> {
                 try {
-                    return ocrProcess(image);
+                    int[] inputDims = LayoutConvertUtil.getResizedDimensions(originImage);
+                    String ocrResult = ocrProcess(originImage);
+                    fullOcrContent.add(ocrResult);
+                    List<Map<String, Object>> rawCells = LayoutConvertUtil.resultToCells(ocrResult);
+                    return new PageResult(originImage, rawCells, inputDims[1], inputDims[0], 0);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
-                } finally {
-                    image.flush();
                 }
             }, ThreadUtil.getExecutor()));
-        } else {
-            throw new IllegalArgumentException("不支持的文件类型: " + extension);
         }
 
-        // 步骤 2: 等待所有页面的 OCR 任务完成
+// 步骤 2: 等待并发任务结束
         CompletableFuture.allOf(ocrFutures.toArray(new CompletableFuture[0])).join();
 
-        // 步骤 3: 按页码顺序汇总 OCR 结果
-        StringBuilder fullOcrContent = new StringBuilder();
+// 步骤 3: 顺序执行坐标还原并生成 Markdown
+        StringBuilder fullMarkdown = new StringBuilder();
+
         for (int i = 0; i < ocrFutures.size(); i++) {
-            fullOcrContent.append("--- Page ").append(i + 1).append(" ---\n");
-            fullOcrContent.append(ocrFutures.get(i).get()).append("\n\n");
+            PageResult res = ocrFutures.get(i).get();
+
+            // 3.1 坐标还原 (Post-process)
+            List<Map<String, Object>> processedCells = LayoutConvertUtil.postProcessCells(
+                    res.originImage,
+                    res.rawCells,
+                    res.inputWidth,
+                    res.inputHeight
+            );
+
+            // 3.2 转换为 Markdown
+            String pageMd = LayoutConvertUtil.layoutJson2Md(res.originImage, processedCells, "text", true);
+
+            fullMarkdown.append("\n");
+            fullMarkdown.append(pageMd).append("\n\n");
+
+            // 3.3 及时释放图片内存
+            res.originImage.flush();
         }
 
+        String finalResult = fullMarkdown.toString();
+        ExamPaper examPaper = dao.getExamPaperById(examPaperId);
         // 步骤 4: 构造完整的 Prompt 并调用一次 API
         String combinedPrompt = Constants.STUDENT_PROMPT +
-                "\n\n【以下是该学生答卷整份文档的 OCR 识别内容，请结合上下文进行批改/识别】\n" +
-                fullOcrContent.toString();
+                "[Blank_Template_JSON]" +
+                examPaper.getQuestions() +
+                "\n\n[Student_Work_Markdown]\n\n" +
+                finalResult;
 
         JSONObject llmResponse = callQwenVlApi(combinedPrompt);
 
@@ -153,7 +196,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         result.put("examPaperId", examPaperId);
         result.put("subject", llmResponse.getString("subject") != null ? llmResponse.getString("subject") : "");
         result.put("responses", llmResponse.getJSONObject("responses"));
-        result.put("questions", llmResponse.getJSONObject("questions"));
+        result.put("questions", examPaper.getQuestions());
         result.put("coordContent", fullOcrContent.toString()); // 保留 OCR 汇总日志供溯源
 
         return result;
@@ -195,6 +238,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
         JSONObject requestBody = new JSONObject();
         requestBody.put("model", Constants.API_MODEL); // 或使用 qwen3-vl-max
+        requestBody.put("enable_thinking", true);
 
         JSONObject message = new JSONObject();
         message.put("role", "user");
@@ -246,7 +290,8 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
-        return ApiUtil.getLLMResponseFromImage(image, Constants.OCR_PROMPT);
-//        return Constants.TEST_OCR_RESPONSE;
+        return ApiUtil.getOCRResponseFromImage(image, Constants.OCR_PROMPT);
+//        return Constants.TEST_STUDENT_OCR_RESPONSE;
     }
+
 }
