@@ -1,5 +1,6 @@
 package dao;
 
+import entities.ExamPaper;
 import entities.MarkedStudentPaper;
 import entities.AnswerPaper;
 import entities.StudentPaper;
@@ -49,6 +50,12 @@ public class StudentPaperDao implements UploadStudentAnswerDataAccessInterface, 
         } catch (SQLException e) {
             throw new RuntimeException("保存学生答卷失败: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public ExamPaper getExamPaperById(String examPaperId) {
+        // TODO
+        return null;
     }
 
     @Override
