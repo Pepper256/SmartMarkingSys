@@ -5,6 +5,7 @@ import java.nio.file.Paths;
 public class Constants {
 
     public static final String API_MODEL = "qwen3-vl-flash";
+    public static final String EXTRACT_STUDENT_API_MODEL = "qwen3-vl-plus";
 
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
     public static final String OCR_API_URL = "http://localhost:8000/v1/chat/completions";
