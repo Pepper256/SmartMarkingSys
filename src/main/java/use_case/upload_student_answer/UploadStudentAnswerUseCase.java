@@ -4,6 +4,7 @@ import app.Main;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import entities.ExamPaper;
 import entities.StudentPaper;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpPost;
@@ -98,7 +99,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
         String extension = FileUtil.getFileExtension(path).toLowerCase();
 
-        StringBuilder fullOcrContent = new StringBuilder();
+        StringJoiner fullOcrContent = new StringJoiner("");
 
         // 步骤 1: 并发执行 OCR（返回 PageResult 对象）
         List<CompletableFuture<PageResult>> ocrFutures = new ArrayList<>();
@@ -124,7 +125,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
                         // 3. 调用大模型 API 获得原始 JSON String 并解析为 List<Map>
                         String ocrResult = ocrProcess(originImage);
 
-                        fullOcrContent.append(ocrResult); // 保留ocr原始生成数据
+                        fullOcrContent.add(ocrResult); // 保留ocr原始生成数据
 
                         List<Map<String, Object>> rawCells = LayoutConvertUtil.resultToCells(ocrResult);
 
@@ -142,7 +143,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
                 try {
                     int[] inputDims = LayoutConvertUtil.getResizedDimensions(originImage);
                     String ocrResult = ocrProcess(originImage);
-                    fullOcrContent.append(ocrResult);
+                    fullOcrContent.add(ocrResult);
                     List<Map<String, Object>> rawCells = LayoutConvertUtil.resultToCells(ocrResult);
                     return new PageResult(originImage, rawCells, inputDims[1], inputDims[0], 0);
                 } catch (Exception e) {
@@ -179,13 +180,13 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         }
 
         String finalResult = fullMarkdown.toString();
-
+        ExamPaper examPaper = dao.getExamPaperById(examPaperId);
         // 步骤 4: 构造完整的 Prompt 并调用一次 API
         String combinedPrompt = Constants.STUDENT_PROMPT +
-                "\n\n【以下是该学生答卷整份文档的 OCR 识别内容，请结合上下文进行批改/识别】\n" +
-                finalResult +
-                "\n\n 【以下是试卷的问题数据】\n" +
-                dao.getExamPaperById(examPaperId).getQuestions();
+                "[Blank_Template_JSON]" +
+                examPaper.getQuestions() +
+                "\n\n[Student_Work_Markdown]\n\n" +
+                finalResult;
 
         JSONObject llmResponse = callQwenVlApi(combinedPrompt);
 
@@ -195,7 +196,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         result.put("examPaperId", examPaperId);
         result.put("subject", llmResponse.getString("subject") != null ? llmResponse.getString("subject") : "");
         result.put("responses", llmResponse.getJSONObject("responses"));
-        result.put("questions", llmResponse.getJSONObject("questions"));
+        result.put("questions", examPaper.getQuestions());
         result.put("coordContent", fullOcrContent.toString()); // 保留 OCR 汇总日志供溯源
 
         return result;
@@ -237,6 +238,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
         JSONObject requestBody = new JSONObject();
         requestBody.put("model", Constants.API_MODEL); // 或使用 qwen3-vl-max
+        requestBody.put("enable_thinking", true);
 
         JSONObject message = new JSONObject();
         message.put("role", "user");

@@ -4,7 +4,7 @@ import java.nio.file.Paths;
 
 public class Constants {
 
-    public static final String API_MODEL = "qwen3-vl-flash";
+    public static final String API_MODEL = "qwen3-vl-plus";
 
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
     public static final String OCR_API_URL = "http://localhost:8000/v1/chat/completions";
@@ -37,9 +37,11 @@ public class Constants {
             \\"20（1）\\":\\"相关内容\\",
             \\"20(2)\\":\\"相关内容\\"
             ...
+            如果没有指明小题题号归属于哪一道大题，你需要自己推理出正确的大题题号。
+            注意，该试卷未做答，试卷上没有学生的答案。对于选择题，需要把选项也纳入问题中。
             """;
     public static final String EXAM_PROMPT = """
-            你是一个老师。请识别图中试卷内容。输出JSON格式：
+            你是一个老师。请识别图中的试卷内容。输出JSON格式：
             {
               "subject": "学科名",
               "questions": {"题号": "题目内容"}
@@ -52,22 +54,39 @@ public class Constants {
             \\"20（2）\\":\\"相关内容\\"
             ...
             如果没有指明小题题号归属于哪一道大题，你需要自己推理出正确的大题题号。
+            注意，该试卷未做答，试卷上没有学生的答案。对于选择题，需要把选项也纳入问题中。
             """;
     public static final String STUDENT_PROMPT = """
-            你是一个老师。请识别文本中已作答的试卷内容。输出JSON格式：
-            {
-              "subject": "学科名",
-              "questions": {"题号": "题目内容"},
-              "responses": {"题号": "回答内容"}
-            }
-            若有字段为空，留空字符串，如果没有题号，则题号由你生成从1开始递增
-            如果题目中，大题内出现小题，保存此小题为大题题号拼接小题题号的形式，不要出现嵌套json对象。
-            假设一道题目的题号为20（1）和20（2），表示第20道大题的第1和第2小题，题号保存的示例：
-            ...
-            \\"20（1）\\":\\"相关答案\\",
-            \\"20（2）\\":\\"相关答案\\"
-            ...
-            如果没有指明小题题号归属于哪一道大题，你需要自己推理出正确的大题题号。
+            # Role
+           你是一个没有任何知识储备的“文本差异扫描仪”。你的唯一功能是：找出 [Student_Work_Markdown] 中比 [Blank_Template_JSON] 多出的物理字符。
+           
+           # Workflow (严格执行)
+           1. **定位题干**：在 [Student_Work_Markdown] 中找到与 [Blank_Template_JSON] 文本描述完全一致的区域。
+           2. **物理比对**：
+              - 逐字比对两个版本的差异。
+              - **如果差异为 0**（即学生版没写字，只有模板自带的括号、下划线、空格）：该题 responses 必须为 ""。
+              - **如果差异 > 0**：仅提取多出来的字符。
+           3. **禁止推理**：严禁根据你的理解去填写答案。哪怕题目是“1+1=”，只要学生版对应位置没写数字，你必须返回 ""。
+           
+           # Rules
+           - **拼接题号**：大题号与小题号直接拼接，严禁分隔符（如 "19(1)"）。
+           - **扁平结构**：JSON 禁止嵌套。
+           - **输出约束**：仅输出纯 JSON，严禁任何解释语。
+           
+           # JSON Schema
+           {
+             "subject": "学科名",
+             "responses": {
+               "拼接题号": "提取的增量内容或空字符串"
+             }
+           }
+           
+           # Input Data
+           [Blank_Template_JSON]
+           {{blank_template}}
+           
+           [Student_Work_Markdown]
+           {{student_work}}
             """;
     public static final String MARKING_PROMPT = """
                     你是一个老师。请识别图中试卷内容并批改试卷。输入json1，json2和json3
