@@ -23,7 +23,7 @@ public class UploadStudentAnswerUseCaseTest {
 
     @BeforeEach
     void setup() {
-        paths.add("./src/main/resources/test.pdf");
+        paths.add("./src/main/resources/test_student_removed.pdf");
     }
 
     @Test
