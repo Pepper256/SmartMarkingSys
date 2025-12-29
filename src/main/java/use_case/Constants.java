@@ -4,10 +4,11 @@ import java.nio.file.Paths;
 
 public class Constants {
 
-    public static final String API_MODEL = "qwen3-vl-flash";
-    public static final String EXTRACT_STUDENT_API_MODEL = "qwen3-vl-plus";
+    public static final String QWEN_API_MODEL = "qwen3-vl-flash";
+    public static final String DEEPSEEK_API_MODEL = "deepseek-v3.2";
 
     public static final String QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
+    public static final String DEEPSEEK_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
     public static final String OCR_API_URL = "http://localhost:8000/v1/chat/completions";
 
     /**
@@ -59,35 +60,38 @@ public class Constants {
             """;
     public static final String STUDENT_PROMPT = """
             # Role
-           你是一个没有任何知识储备的“文本差异扫描仪”。你的唯一功能是：找出 [Student_Work_Markdown] 中比 [Blank_Template_JSON] 多出的物理字符。
-           
-           # Workflow (严格执行)
-           1. **定位题干**：在 [Student_Work_Markdown] 中找到与 [Blank_Template_JSON] 文本描述完全一致的区域。
-           2. **物理比对**：
-              - 逐字比对两个版本的差异。
-              - **如果差异为 0**（即学生版没写字，只有模板自带的括号、下划线、空格）：该题 responses 必须为 ""。
-              - **如果差异 > 0**：仅提取多出来的字符。
-           3. **禁止推理**：严禁根据你的理解去填写答案。哪怕题目是“1+1=”，只要学生版对应位置没写数字，你必须返回 ""。
-           
-           # Rules
-           - **拼接题号**：大题号与小题号直接拼接，严禁分隔符（如 "19(1)"）。
-           - **扁平结构**：JSON 禁止嵌套。
-           - **输出约束**：仅输出纯 JSON，严禁任何解释语。
-           
-           # JSON Schema
-           {
-             "subject": "学科名",
-             "responses": {
-               "拼接题号": "提取的增量内容或空字符串"
-             }
-           }
-           
-           # Input Data
-           [Blank_Template_JSON]
-           {{blank_template}}
-           
-           [Student_Work_Markdown]
-           {{student_work}}
+            你是一个极度灵敏、没有任何知识储备的“文本差异扫描仪”。你的任务是精准捕获 [Student_Work_Markdown] 中每一个微小的物理增量。
+                        
+            # Workflow (强制执行)
+            1. **全量锚定**：以 [Blank_Template_JSON] 的所有 Key 为强制输出列表，禁止遗漏任何字段。
+            2. **像素级比对**：
+               - 定位题干区域后，必须逐字符比对。
+               - **灵敏提取**：哪怕学生只多写了一个字母、一个数字或一个符号（如 A, B, 1, √），只要它是模板中不存在的，**必须**提取到 `responses` 中。
+               - **深度识别**：如果模板中是 `( )` 而学生版是 `( A )`，字符 "A" 绝对不能被视作噪点，必须保留。
+            3. **二阶段核对 (Anti-Omission Check)**：
+               - 在生成每一条 response 前，自问：学生版在这个位置真的和模板版完全一模一样吗？
+               - 只要有任何微小的不一致，优先保留学生版多出的字符。
+                        
+            # Rules
+            - **禁止过滤**：严禁自作聪明地过滤掉简短答案。只要有物理增量，哪怕只有一个字符，也必须输出。
+            - **拼接题号**：大题号与小题号直接拼接，无分隔符（例："一1", "19(1)"）。
+            - **零推理**：严禁生成任何模版和学生版均不存在的内容。
+            - **全量覆盖**：未作答题目必须保留 Key 并填入 `""`，严禁删除 Key。
+                        
+            # JSON Schema
+            {
+              "subject": "学科名",
+              "responses": {
+                "直接拼接题号": "提取的原始增量"
+              }
+            }
+                        
+            # Input Data
+            [Blank_Template_JSON]
+            {{blank_template}}
+                        
+            [Student_Work_Markdown]
+            {{student_work}}
             """;
     public static final String MARKING_PROMPT = """
                     你是一个老师。请识别图中试卷内容并批改试卷。输入json1，json2和json3
@@ -131,7 +135,7 @@ public class Constants {
             3. 提供不少于3条具体的后续学习建议。
             4. 整理易错点
 
-            请直接输出报告正文，不要包含多余的开场白。在报告的结尾，不要输出"报告完毕"或相近意思的字，只需要以一条实线结尾即可
+            请直接输出报告正文，不要包含多余的开场白。在报告的结尾，不要输出\"报告完毕\"或相近意思的字，只需要以一条实线结尾即可
             """;
 
     public static final String OCR_PROMPT = """

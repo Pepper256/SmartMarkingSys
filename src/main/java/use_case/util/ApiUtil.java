@@ -25,27 +25,35 @@ import java.util.Collections;
 public class ApiUtil {
 
     public static HttpPost getHttpPost(String prompt) {
-        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+        HttpPost httpPost = new HttpPost(Constants.DEEPSEEK_API_URL);
         httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
         httpPost.setHeader("Content-Type", "application/json");
 
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", Constants.API_MODEL);
+        requestBody.put("model", Constants.DEEPSEEK_API_MODEL);
+//        requestBody.put("enable_thinking", true);
+        requestBody.put("temperature", 0);
 
         JSONObject message = new JSONObject();
         message.put("role", "user");
+
         JSONArray content = new JSONArray();
-        content.add(new JSONObject().fluentPut("text", prompt));
-        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+        // 只发送文本内容，因为 OCR 已经提供了视觉信息的文本描述
+        // 如果需要发送图片，请参考原代码中注释的部分
+        content.add(new JSONObject().fluentPut("type", "text").fluentPut("text", prompt));
 
         message.put("content", content);
-        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+
+//        JSONObject input = new JSONObject();
+//        input.put("messages", Collections.singletonList(message));
+//        requestBody.put("input", input);
+        requestBody.put("messages", Collections.singletonList(message));
 
         httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
         return httpPost;
     }
 
-    public static String callQwenVlFlashApi(String prompt) throws IOException {
+    public static String callDeepseekApi(String prompt) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
@@ -60,14 +68,14 @@ public class ApiUtil {
 
                 // 解析 JSON 路径: output -> choices[0] -> message -> content[0] -> text
                 return objectMapper.readTree(responseBody)
-                        .path("output")
+//                        .path("output")
                         .path("choices")
                         .get(0)
                         .path("message")
-                        .path("content")
-                        .get(0)
-                        .path("text")
-                        .asText();
+                        .path("content").asText();
+//                        .get(0)
+//                        .path("text")
+//                        .asText();
             });
         }
     }

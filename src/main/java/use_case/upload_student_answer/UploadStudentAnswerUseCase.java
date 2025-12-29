@@ -232,13 +232,14 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
      * 构建 HttpPost 请求对象
      */
     private HttpPost getHttpPost(String prompt) {
-        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+        HttpPost httpPost = new HttpPost(Constants.DEEPSEEK_API_URL);
         httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
         httpPost.setHeader("Content-Type", "application/json");
 
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", Constants.EXTRACT_STUDENT_API_MODEL); // 或使用 qwen3-vl-max
-        requestBody.put("enable_thinking", true);
+        requestBody.put("model", Constants.DEEPSEEK_API_MODEL); // 或使用 qwen3-vl-max
+//        requestBody.put("enable_thinking", true);
+        requestBody.put("temperature", 0);
 
         JSONObject message = new JSONObject();
         message.put("role", "user");
@@ -250,9 +251,10 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
         message.put("content", content);
 
-        JSONObject input = new JSONObject();
-        input.put("messages", Collections.singletonList(message));
-        requestBody.put("input", input);
+//        JSONObject input = new JSONObject();
+//        input.put("messages", Collections.singletonList(message));
+//        requestBody.put("input", input);
+        requestBody.put("messages", Collections.singletonList(message));
 
         httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
         return httpPost;
@@ -265,13 +267,13 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         JSONObject responseObj = JSON.parseObject(rawJson);
 
         // 兼容通义千问 API 的响应结构
-        String contentText = responseObj.getJSONObject("output")
+        String contentText = responseObj//.getJSONObject("output")
                 .getJSONArray("choices")
                 .getJSONObject(0)
                 .getJSONObject("message")
-                .getJSONArray("content")
-                .getJSONObject(0)
-                .getString("text");
+                .getString("content");
+//                .getJSONObject(0)
+//                .getString("text");
 
         // 清理大模型可能返回的 Markdown 格式代码块标记
         String cleanJson = contentText.replaceAll("(?s)```json\\s*(.*?)\\s*```", "$1")

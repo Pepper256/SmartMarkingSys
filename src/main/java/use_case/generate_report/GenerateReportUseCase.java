@@ -1,25 +1,14 @@
 package use_case.generate_report;
 
-import app.Main;
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ibm.icu.util.Output;
 import entities.MarkedStudentPaper;
 import entities.Report;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import use_case.Constants;
 import use_case.dto.GenerateReportInputData;
 import use_case.dto.GenerateReportOutputData;
-import use_case.dto.GenerateStudentReportOutputData;
 import use_case.util.ApiUtil;
 
-import java.io.IOException;
 import java.util.*;
 
 public class GenerateReportUseCase implements GenerateReportInputBoundary{
@@ -57,7 +46,7 @@ public class GenerateReportUseCase implements GenerateReportInputBoundary{
             finalPrompt = Constants.REPORT_PROMPT + "\n以下本次考试学生的批改后的试卷内容\n" + objectMapper.writeValueAsString(questionDetails);
 
             // 3. 发起原生 HTTP 请求调用 Qwen-VL-Flash
-            String generatedReport = ApiUtil.callQwenVlFlashApi(finalPrompt);
+            String generatedReport = ApiUtil.callDeepseekApi(finalPrompt);
 
             // 4. 创建 Report 对象并持久化
             Report report = new Report(

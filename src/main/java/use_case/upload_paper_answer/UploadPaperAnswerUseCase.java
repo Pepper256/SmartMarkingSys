@@ -22,7 +22,6 @@ import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import use_case.Constants;
 import use_case.dto.UploadPaperAnswerInputData;
@@ -202,7 +201,7 @@ public class UploadPaperAnswerUseCase implements UploadPaperAnswerInputBoundary{
         httpPost.setHeader("Content-Type", "application/json");
 
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", Constants.API_MODEL);
+        requestBody.put("model", Constants.QWEN_API_MODEL);
 
         JSONObject message = new JSONObject();
         message.put("role", "user");
