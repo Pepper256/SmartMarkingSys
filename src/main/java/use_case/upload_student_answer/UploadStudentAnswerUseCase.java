@@ -183,9 +183,9 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         ExamPaper examPaper = dao.getExamPaperById(examPaperId);
         // 步骤 4: 构造完整的 Prompt 并调用一次 API
         String combinedPrompt = Constants.STUDENT_PROMPT +
-                "[Blank_Template_JSON]" +
-                examPaper.getQuestions() +
-                "\n\n[Student_Work_Markdown]\n\n" +
+//                "[Blank_Template_JSON]" +
+//                examPaper.getQuestions() +
+                "\n\n[Student_Card_OCR]\n\n" +
                 finalResult;
 
         JSONObject llmResponse = callQwenVlApi(combinedPrompt);
@@ -292,8 +292,8 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
-        return ApiUtil.getOCRResponseFromImage(image, Constants.OCR_PROMPT);
-//        return Constants.TEST_STUDENT_OCR_RESPONSE;
+//        return ApiUtil.getOCRResponseFromImage(image, Constants.OCR_PROMPT);
+        return Constants.TEST_STUDENT_OCR_RESPONSE;
     }
 
 }
