@@ -303,7 +303,7 @@ public class AutoMarkingUseCaseTest {
                                   421
                                 ],
                                 "category": "Text",
-                                "text": "2. [A] [x] C D 7. [A] B C D 12. [A] B C D"
+                                "text": "2. [A] B C D 7. [A] B C D 12. [A] B C D"
                               },
                               {
                                 "bbox": [
@@ -313,7 +313,7 @@ public class AutoMarkingUseCaseTest {
                                   437
                                 ],
                                 "category": "Text",
-                                "text": "3. [A] B [x] D 8. [A] B C D 13. [A] B C D"
+                                "text": "3. [A] B C D 8. [A] B C D 13. [A] B C D"
                               },
                               {
                                 "bbox": [
@@ -323,7 +323,7 @@ public class AutoMarkingUseCaseTest {
                                   453
                                 ],
                                 "category": "Text",
-                                "text": "4. [A] B C [x] 9. [A] B C D 14. [A] B C D"
+                                "text": "4. [A] B C D 9. [A] B C D 14. [A] B C D"
                               },
                               {
                                 "bbox": [
@@ -443,7 +443,7 @@ public class AutoMarkingUseCaseTest {
                                   722
                                 ],
                                 "category": "Text",
-                                "text": "20.3(5分)守法：自觉履行法定义务或依法行使权利。自觉遵守法律。用法：当自己的权利受到侵害的时候，用合法的方式维护自身权利，比如调解，和解等。"
+                                "text": "20.3(5分)"
                               },
                               {
                                 "bbox": [
