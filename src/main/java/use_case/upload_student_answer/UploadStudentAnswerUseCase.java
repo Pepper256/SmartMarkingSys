@@ -19,6 +19,7 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import use_case.Constants;
 import use_case.dto.UploadStudentAnswerInputData;
 import use_case.dto.UploadStudentAnswerOutputData;
+import use_case.util.ApiUtil;
 import use_case.util.FileUtil;
 import use_case.util.LayoutConvertUtil;
 import use_case.util.ThreadUtil;
@@ -296,8 +297,8 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     }
 
     private String ocrProcess(BufferedImage image) throws Exception {
-//        return ApiUtil.getOCRResponseFromImage(image, Constants.OCR_PROMPT);
-        return Constants.TEST_STUDENT_OCR_RESPONSE;
+        return ApiUtil.getOCRResponseFromImage(image, Constants.OCR_PROMPT);
+//        return Constants.TEST_STUDENT_OCR_RESPONSE;
     }
 
 }
