@@ -32,7 +32,10 @@ public class MarkedStudentPaperDaoSqliteTest {
         HashMap<String, String> rsp = new HashMap<String, String>();
         rsp.put("1", "3");
 
-        StudentPaper sp = new StudentPaper("SP_100", "EXAM_100", "Math", qs, rsp, "coord", new HashMap<>()); // TODO
+        HashMap<String, String> pb = new HashMap<String, String>();
+        pb.put("page1", "BASE64_PAGE_1");
+
+        StudentPaper sp = new StudentPaper("SP_100", "EXAM_100", "Math", qs, rsp, "coord", pb);
         List<StudentPaper> sps = new ArrayList<StudentPaper>();
         sps.add(sp);
         studentDao.saveStudentPapers(sps);
@@ -52,7 +55,7 @@ public class MarkedStudentPaperDaoSqliteTest {
                 qs,
                 rsp,
                 "coord",
-                new HashMap<>(), // TODO
+                pb,
                 correctness,
                 "marked content",
                 reasons

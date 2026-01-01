@@ -83,7 +83,7 @@ public void storeReport(Report report) {
         DatabaseManager.initSchemaIfNeeded();
 
         String sql = "SELECT " +
-                "sp.id AS sp_id, sp.exam_paper_id, sp.subject, sp.questions_json, sp.responses_json, sp.coord_content, " +
+                "sp.id AS sp_id, sp.exam_paper_id, sp.subject, sp.questions_json, sp.responses_json, sp.coord_content, sp.paper_base64_json, " +
                 "mp.marked_content, mp.correctness_json, mp.reasons_json " +
                 "FROM student_paper sp " +
                 "JOIN marked_student_paper mp ON mp.student_paper_id = sp.id " +
@@ -111,7 +111,7 @@ public void storeReport(Report report) {
         DatabaseManager.initSchemaIfNeeded();
 
         String sql = "SELECT " +
-                "sp.id AS sp_id, sp.exam_paper_id, sp.subject, sp.questions_json, sp.responses_json, sp.coord_content, " +
+                "sp.id AS sp_id, sp.exam_paper_id, sp.subject, sp.questions_json, sp.responses_json, sp.coord_content, sp.paper_base64_json, " +
                 "mp.marked_content, mp.correctness_json, mp.reasons_json " +
                 "FROM student_paper sp " +
                 "JOIN marked_student_paper mp ON mp.student_paper_id = sp.id " +
@@ -142,12 +142,12 @@ public void storeReport(Report report) {
         String questionsJson = rs.getString("questions_json");
         String responsesJson = rs.getString("responses_json");
         String coordContent = rs.getString("coord_content");
+        String paperBase64Json = rs.getString("paper_base64_json");
 
         String markedContent = rs.getString("marked_content");
         String correctnessJson = rs.getString("correctness_json");
         String reasonsJson = rs.getString("reasons_json");
 
-        // TODO
         return new MarkedStudentPaper(
                 id,
                 examPaperId,
@@ -155,7 +155,7 @@ public void storeReport(Report report) {
                 MapJsonUtil.toStringMap(questionsJson),
                 MapJsonUtil.toStringMap(responsesJson),
                 coordContent,
-                new HashMap<>(),
+                MapJsonUtil.toStringMap(paperBase64Json),
                 MapJsonUtil.toBooleanMap(correctnessJson),
                 markedContent,
                 MapJsonUtil.toStringMap(reasonsJson)

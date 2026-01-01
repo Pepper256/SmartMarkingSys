@@ -14,6 +14,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,6 +52,11 @@ public final class DatabaseManager {
                 for (String stmt : readSchemaStatementsFromResource()) {
                     st.execute(stmt);
                 }
+
+                // Lightweight migrations for newly added columns.
+                // Note: CREATE TABLE IF NOT EXISTS will NOT add columns to existing tables.
+                ensureColumnExists(conn, "student_paper", "paper_base64_json", "TEXT");
+                ensureColumnExists(conn, "report", "student_paper_id", "TEXT");
 
                 initialized = true;
             } catch (SQLException | IOException e) {
@@ -122,4 +128,28 @@ public final class DatabaseManager {
         if (!last.isEmpty()) out.add(last);
         return out;
     }
+
+
+    // ---- schema migrations ----
+    // These are intentionally lightweight. We only add columns that are required by current DAO code.
+    private static void ensureColumnExists(Connection conn, String table, String column, String columnType) throws SQLException {
+        if (columnExists(conn, table, column)) return;
+        try (Statement st = conn.createStatement()) {
+            st.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + columnType);
+        }
+    }
+
+    private static boolean columnExists(Connection conn, String table, String column) throws SQLException {
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                String name = rs.getString("name");
+                if (name != null && name.equalsIgnoreCase(column)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
 }

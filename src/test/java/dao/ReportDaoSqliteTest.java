@@ -33,7 +33,10 @@ public class ReportDaoSqliteTest {
         HashMap<String, String> rsp = new HashMap<String, String>();
         rsp.put("1", "2");
 
-        StudentPaper sp = new StudentPaper(studentPaperId, examPaperId, "Math", qs, rsp, "coord", new HashMap<>());// TODO
+        HashMap<String, String> pb = new HashMap<String, String>();
+        pb.put("page1", "BASE64_PAGE_1");
+
+        StudentPaper sp = new StudentPaper(studentPaperId, examPaperId, "Math", qs, rsp, "coord", pb);
         List<StudentPaper> sps = new ArrayList<StudentPaper>();
         sps.add(sp);
         studentDao.saveStudentPapers(sps);
@@ -51,7 +54,7 @@ public class ReportDaoSqliteTest {
                 qs,
                 rsp,
                 "coord",
-                new HashMap<>(),// TODO
+                pb,
                 correctness,
                 "nice work",
                 reasons
@@ -84,6 +87,7 @@ public class ReportDaoSqliteTest {
         assertEquals("Math", loaded.getSubject());
         assertEquals("nice work", loaded.getMarkedContent());
         assertEquals(true, loaded.getCorrectness().get("1"));
+        assertEquals("BASE64_PAGE_1", loaded.getPaperBase64().get("page1"));
     }
 
     @Test
