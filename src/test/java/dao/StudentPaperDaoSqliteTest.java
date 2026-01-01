@@ -30,6 +30,9 @@ public class StudentPaperDaoSqliteTest {
         rsp.put("1", "2");
         rsp.put("2", "4");
 
+        HashMap<String, String> pb = new HashMap<String, String>();
+        pb.put("page1", "BASE64_PAGE_1");
+
         StudentPaper sp = new StudentPaper(
                 "SP_001",
                 "EXAM_001",
@@ -37,7 +40,7 @@ public class StudentPaperDaoSqliteTest {
                 qs,
                 rsp,
                 "coord-content",
-                new HashMap<>() // TODO
+                pb
         );
 
         List<StudentPaper> list = new ArrayList<StudentPaper>();

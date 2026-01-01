@@ -25,7 +25,7 @@ public class StudentPaperDao implements UploadStudentAnswerDataAccessInterface, 
     @Override
     public void saveStudentPapers(List<StudentPaper> studentPapers) {
         DatabaseManager.initSchemaIfNeeded();
-        String sql = "INSERT OR REPLACE INTO student_paper (id, exam_paper_id, subject, questions_json, responses_json, coord_content) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT OR REPLACE INTO student_paper (id, exam_paper_id, subject, questions_json, responses_json, coord_content, paper_base64_json) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseManager.getConnection()) {
             conn.setAutoCommit(false);
@@ -37,6 +37,7 @@ public class StudentPaperDao implements UploadStudentAnswerDataAccessInterface, 
                     ps.setString(4, MapJsonUtil.toJson(sp.getQuestions()));
                     ps.setString(5, MapJsonUtil.toJson(sp.getResponses()));
                     ps.setString(6, sp.getCoordContent());
+                    ps.setString(7, MapJsonUtil.toJson(sp.getPaperBase64() == null ? new HashMap<String, String>() : sp.getPaperBase64()));
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -84,7 +85,7 @@ public class StudentPaperDao implements UploadStudentAnswerDataAccessInterface, 
     @Override
     public StudentPaper getStudentPaperById(String id) {
         DatabaseManager.initSchemaIfNeeded();
-        String sql = "SELECT id, exam_paper_id, subject, questions_json, responses_json, coord_content FROM student_paper WHERE id = ?";
+        String sql = "SELECT id, exam_paper_id, subject, questions_json, responses_json, coord_content, paper_base64_json FROM student_paper WHERE id = ?";
 
         try (Connection conn = DatabaseManager.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, id);
@@ -99,7 +100,7 @@ public class StudentPaperDao implements UploadStudentAnswerDataAccessInterface, 
                         MapJsonUtil.toStringMap(rs.getString("questions_json")),
                         MapJsonUtil.toStringMap(rs.getString("responses_json")),
                         rs.getString("coord_content"),
-                        new HashMap<>() // TODO
+                        MapJsonUtil.toStringMap(rs.getString("paper_base64_json"))
                 );
             }
         } catch (SQLException e) {
