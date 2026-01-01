@@ -32,7 +32,7 @@ public class ApiUtil {
         JSONObject requestBody = new JSONObject();
         requestBody.put("model", Constants.DEEPSEEK_API_MODEL);
 //        requestBody.put("enable_thinking", true);
-        requestBody.put("temperature", 0);
+        requestBody.put("temperature", 0.8);
 
         JSONObject message = new JSONObject();
         message.put("role", "user");
@@ -67,7 +67,7 @@ public class ApiUtil {
                 }
 
                 // 解析 JSON 路径: output -> choices[0] -> message -> content[0] -> text
-                return objectMapper.readTree(responseBody)
+                String text = objectMapper.readTree(responseBody)
 //                        .path("output")
                         .path("choices")
                         .get(0)
@@ -76,6 +76,7 @@ public class ApiUtil {
 //                        .get(0)
 //                        .path("text")
 //                        .asText();
+                return text.replaceAll("```json", "").replaceAll("```", "").trim();
             });
         }
     }

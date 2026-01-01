@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
@@ -146,6 +147,7 @@ public void storeReport(Report report) {
         String correctnessJson = rs.getString("correctness_json");
         String reasonsJson = rs.getString("reasons_json");
 
+        // TODO
         return new MarkedStudentPaper(
                 id,
                 examPaperId,
@@ -153,6 +155,7 @@ public void storeReport(Report report) {
                 MapJsonUtil.toStringMap(questionsJson),
                 MapJsonUtil.toStringMap(responsesJson),
                 coordContent,
+                new HashMap<>(),
                 MapJsonUtil.toBooleanMap(correctnessJson),
                 markedContent,
                 MapJsonUtil.toStringMap(reasonsJson)

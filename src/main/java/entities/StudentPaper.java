@@ -14,6 +14,7 @@ public class StudentPaper {
     private HashMap<String, String> responses; // map questions to student responses
     private String subject;
     private String coordContent;
+    private HashMap<String, String> paperBase64;
 
     public StudentPaper() {}
 
@@ -22,13 +23,15 @@ public class StudentPaper {
                         String subject,
                         HashMap<String, String> questions,
                         HashMap<String, String> responses,
-                        String coordContent) {
+                        String coordContent,
+                        HashMap<String, String> paperBase64) {
         this.id = id;
         this.examPaperId = examPaperId;
         this.questions = questions;
         this.responses = responses;
         this.subject = subject;
         this.coordContent = coordContent;
+        this.paperBase64 = paperBase64;
     }
 
     public HashMap<String, String> getQuestions() {
@@ -79,6 +82,14 @@ public class StudentPaper {
         this.examPaperId = examPaperId;
     }
 
+    public HashMap<String, String> getPaperBase64() {
+        return paperBase64;
+    }
+
+    public void setPaperBase64(HashMap<String, String> paperBase64) {
+        this.paperBase64 = paperBase64;
+    }
+
     /**
      * @param json 需要转化的json字符串，要求包含字段id，subject，questions，responses
      * @return 转换以后的StudentPaper对象，储存信息为json中的信息，如果转换失败则返回null
@@ -101,6 +112,7 @@ public class StudentPaper {
         jsonObject.put("questions", this.getQuestions());
         jsonObject.put("responses", this.getResponses());
         jsonObject.put("coordContent", this.getCoordContent());
+        jsonObject.put("paperBase64", this.getPaperBase64());
         return jsonObject.toJSONString();
     }
 
@@ -114,7 +126,8 @@ public class StudentPaper {
                     studentPaperObj.getSubject().equals(this.subject) &&
                     studentPaperObj.getCoordContent().equals(this.coordContent) &&
                     studentPaperObj.getExamPaperId().equals(this.examPaperId) &&
-                    studentPaperObj.getResponses().equals(this.responses);
+                    studentPaperObj.getResponses().equals(this.responses) &&
+                    studentPaperObj.getPaperBase64().equals(this.paperBase64);
         }
         catch (Exception e) {
             return false;

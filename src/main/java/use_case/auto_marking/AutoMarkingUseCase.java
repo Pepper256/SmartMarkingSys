@@ -4,6 +4,7 @@ import app.Main;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,8 +20,13 @@ import org.apache.http.util.EntityUtils;
 import use_case.Constants;
 import use_case.dto.AutoMarkingInputData;
 import use_case.dto.AutoMarkingOutputData;
+import use_case.util.ApiUtil;
+import use_case.util.FileUtil;
+import use_case.util.LayoutConvertUtil;
 import use_case.util.ThreadUtil;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -31,6 +37,7 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
 
     private final AutoMarkingOutputBoundary outputBoundary;
     private final AutoMarkingDataAccessInterface dao;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public AutoMarkingUseCase(AutoMarkingOutputBoundary outputBoundary,
                               AutoMarkingDataAccessInterface dao) {
@@ -82,51 +89,47 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
 
             // 构建批改请求内容：问题 + 学生回答 + OCR坐标参考
             Map<String, Object> markContext = new HashMap<>();
-            for (String key : studentPaper.getQuestions().keySet()) {
-                String question = studentPaper.getQuestions().get(key);
-                Map<String, String> questionAndResponse = new HashMap<>();
-                try {
-                    String response = studentPaper.getResponses().get(key);
-                    questionAndResponse.put("question", question);
-                    questionAndResponse.put("response", response);
-                    markContext.put(key, questionAndResponse);
-                }
-                catch (Exception e) {
-                    questionAndResponse.put("question", question);
-                    questionAndResponse.put("response", "");
-                }
-                markContext.put(key, questionAndResponse);
-            }
+            markContext.put("questions", studentPaper.getQuestions());
+            markContext.put("responses", studentPaper.getResponses());
+            markContext.put("answers", dao.getAnswerPaperByExamPaperId(studentPaper.getExamPaperId()).getAnswers());
 
-            String promptPayload = "json1 = " +
-                    JSON.toJSONString(markContext) +
-                    "\n【OCR坐标上下文】\njson2 = " +
+            String promptPayload = Constants.MARKING_PROMPT +
+                    "[OCR_Result]\n" +
                     studentPaper.getCoordContent() +
-                    "json3=" +
-                    dao.getAnswerPaperByExamPaperId(studentPaper.getExamPaperId()).getAnswers();
+                    "\n\n[Exam_Metadata]\n" +
+                    JSON.toJSONString(markContext);
 
             // 调用通用的 Qwen 处理逻辑
-            String responseJsonStr = askQwen(promptPayload);
+            String responseJsonStr = ApiUtil.callDeepseekApi(promptPayload);
             JSONObject root = JSON.parseObject(responseJsonStr);
 
             // 解析批改详情
-            JSONObject answerInfo = root.getJSONObject("answerInfo");
-            HashMap<String, Boolean> correctness = new HashMap<>();
-            HashMap<String, String> reasons = new HashMap<>();
-
-            for (String key : answerInfo.keySet()) {
-                JSONObject detail = answerInfo.getJSONObject(key);
-                correctness.put(key, detail.getBoolean("correctness"));
-                reasons.put(key, detail.getString("reason"));
-            }
+            HashMap<String, Boolean> correctness = mapper.readValue(
+                    root.getJSONObject("correctness").toJSONString(),
+                    new TypeReference<>() {});
+            HashMap<String, String> reasons = mapper.readValue(
+                    root.getJSONObject("reasons").toJSONString(),
+                    new TypeReference<>() {});;
+            String markWithCoords = root.getJSONArray("markWithCoords").toJSONString();
 
             // 封装结果
             MarkedStudentPaper markedPaper = new MarkedStudentPaper(
                     studentPaper,
                     correctness,
-                    root.getJSONArray("markWithCoords").toJSONString(),
+                    markWithCoords,
                     reasons
             );
+
+            // 在图片上打勾并保存
+            for(int i = 0; i < studentPaper.getPaperBase64().size(); i++) {
+                BufferedImage img = LayoutConvertUtil.layoutJson2MarkedImage(
+                        FileUtil.base64ToBufferedImage(studentPaper.getPaperBase64().get(Integer.toString(i))),
+                        LayoutConvertUtil.resultToCells(markWithCoords)
+                );
+                FileUtil.saveImageToConstPath(
+                        img,
+                        "marked_image_" + studentPaper.getId() + "_" + i + ".png");
+            }
 
             return new MarkingResult(markedPaper, root.getJSONArray("markWithCoords").toJSONString());
         } catch (Exception e) {
@@ -134,54 +137,54 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
         }
     }
 
-    private HttpPost getHttpPost(String prompt) {
-        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
-        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
-        httpPost.setHeader("Content-Type", "application/json");
-
-        JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "qwen3-vl-flash");
-
-        JSONObject message = new JSONObject();
-        message.put("role", "user");
-        JSONArray content = new JSONArray();
-        content.add(new JSONObject().fluentPut("text", prompt));
-        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
-
-        message.put("content", content);
-        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
-
-        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
-        return httpPost;
-    }
-
-    /**
-     * 调用 Qwen 模型进行文本推理（批改逻辑）
-     */
-    private String askQwen(String content) throws Exception {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = getHttpPost(Constants.MARKING_PROMPT + content);
-
-            return httpClient.execute(httpPost, response -> {
-                String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                if (response.getStatusLine().getStatusCode() != 200) {
-                    throw new IOException("Qwen API Error: " + response.getStatusLine().getStatusCode() + " - " + body);
-                }
-
-                // 解析并清洗返回的 JSON 字符串
-                JSONObject resObj = JSON.parseObject(body);
-                String text = resObj.getJSONObject("output")
-                        .getJSONArray("choices")
-                        .getJSONObject(0)
-                        .getJSONObject("message")
-                        .getJSONArray("content")
-                        .getJSONObject(0)
-                        .getString("text");
-
-                return text.replaceAll("```json", "").replaceAll("```", "").trim();
-            });
-        }
-    }
+//    private HttpPost getHttpPost(String prompt) {
+//        HttpPost httpPost = new HttpPost(Constants.QWEN_API_URL);
+//        httpPost.setHeader("Authorization", "Bearer " + Main.loadQwenApiKey());
+//        httpPost.setHeader("Content-Type", "application/json");
+//
+//        JSONObject requestBody = new JSONObject();
+//        requestBody.put("model", "qwen3-vl-flash");
+//
+//        JSONObject message = new JSONObject();
+//        message.put("role", "user");
+//        JSONArray content = new JSONArray();
+//        content.add(new JSONObject().fluentPut("text", prompt));
+//        // content.add(new JSONObject().fluentPut("image", "data:image/png;base64," + base64Image));
+//
+//        message.put("content", content);
+//        requestBody.put("input", new JSONObject().fluentPut("messages", Collections.singletonList(message)));
+//
+//        httpPost.setEntity(new StringEntity(requestBody.toJSONString(), ContentType.APPLICATION_JSON));
+//        return httpPost;
+//    }
+//
+//    /**
+//     * 调用 Qwen 模型进行文本推理（批改逻辑）
+//     */
+//    private String askQwen(String content) throws Exception {
+//        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+//            HttpPost httpPost = getHttpPost(Constants.MARKING_PROMPT + content);
+//
+//            return httpClient.execute(httpPost, response -> {
+//                String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+//                if (response.getStatusLine().getStatusCode() != 200) {
+//                    throw new IOException("Qwen API Error: " + response.getStatusLine().getStatusCode() + " - " + body);
+//                }
+//
+//                // 解析并清洗返回的 JSON 字符串
+//                JSONObject resObj = JSON.parseObject(body);
+//                String text = resObj.getJSONObject("output")
+//                        .getJSONArray("choices")
+//                        .getJSONObject(0)
+//                        .getJSONObject("message")
+//                        .getJSONArray("content")
+//                        .getJSONObject(0)
+//                        .getString("text");
+//
+//                return text.replaceAll("```json", "").replaceAll("```", "").trim();
+//            });
+//        }
+//    }
 
     /**
      * 内部类用于承载多线程执行结果
