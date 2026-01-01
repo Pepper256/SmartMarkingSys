@@ -183,8 +183,8 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         ExamPaper examPaper = dao.getExamPaperById(examPaperId);
         // 步骤 4: 构造完整的 Prompt 并调用一次 API
         String combinedPrompt = Constants.STUDENT_PROMPT +
-//                "[Blank_Template_JSON]" +
-//                examPaper.getQuestions() +
+                "[Standard_Keys]" +
+                examPaper.getQuestions().keySet().toString() +
                 "\n\n[Student_Card_OCR]\n\n" +
                 finalResult;
 

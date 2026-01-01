@@ -4,6 +4,7 @@ import app.Main;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,6 +20,7 @@ import org.apache.http.util.EntityUtils;
 import use_case.Constants;
 import use_case.dto.AutoMarkingInputData;
 import use_case.dto.AutoMarkingOutputData;
+import use_case.util.ApiUtil;
 import use_case.util.ThreadUtil;
 
 import java.io.IOException;
@@ -31,6 +33,7 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
 
     private final AutoMarkingOutputBoundary outputBoundary;
     private final AutoMarkingDataAccessInterface dao;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public AutoMarkingUseCase(AutoMarkingOutputBoundary outputBoundary,
                               AutoMarkingDataAccessInterface dao) {
@@ -82,43 +85,27 @@ public class AutoMarkingUseCase implements AutoMarkingInputBoundary{
 
             // 构建批改请求内容：问题 + 学生回答 + OCR坐标参考
             Map<String, Object> markContext = new HashMap<>();
-            for (String key : studentPaper.getQuestions().keySet()) {
-                String question = studentPaper.getQuestions().get(key);
-                Map<String, String> questionAndResponse = new HashMap<>();
-                try {
-                    String response = studentPaper.getResponses().get(key);
-                    questionAndResponse.put("question", question);
-                    questionAndResponse.put("response", response);
-                    markContext.put(key, questionAndResponse);
-                }
-                catch (Exception e) {
-                    questionAndResponse.put("question", question);
-                    questionAndResponse.put("response", "");
-                }
-                markContext.put(key, questionAndResponse);
-            }
+            markContext.put("questions", studentPaper.getQuestions());
+            markContext.put("responses", studentPaper.getResponses());
+            markContext.put("answers", dao.getAnswerPaperByExamPaperId(studentPaper.getExamPaperId()).getAnswers());
 
-            String promptPayload = "json1 = " +
-                    JSON.toJSONString(markContext) +
-                    "\n【OCR坐标上下文】\njson2 = " +
+            String promptPayload = Constants.MARKING_PROMPT +
+                    "[OCR_Result]\n" +
                     studentPaper.getCoordContent() +
-                    "json3=" +
-                    dao.getAnswerPaperByExamPaperId(studentPaper.getExamPaperId()).getAnswers();
+                    "\n\n[Exam_Metadata]\n" +
+                    JSON.toJSONString(markContext);
 
             // 调用通用的 Qwen 处理逻辑
-            String responseJsonStr = askQwen(promptPayload);
+            String responseJsonStr = ApiUtil.callDeepseekApi(promptPayload);
             JSONObject root = JSON.parseObject(responseJsonStr);
 
             // 解析批改详情
-            JSONObject answerInfo = root.getJSONObject("answerInfo");
-            HashMap<String, Boolean> correctness = new HashMap<>();
-            HashMap<String, String> reasons = new HashMap<>();
-
-            for (String key : answerInfo.keySet()) {
-                JSONObject detail = answerInfo.getJSONObject(key);
-                correctness.put(key, detail.getBoolean("correctness"));
-                reasons.put(key, detail.getString("reason"));
-            }
+            HashMap<String, Boolean> correctness = mapper.readValue(
+                    root.getJSONObject("correctness").toJSONString(),
+                    new TypeReference<>() {});
+            HashMap<String, String> reasons = mapper.readValue(
+                    root.getJSONObject("reasons").toJSONString(),
+                    new TypeReference<>() {});;
 
             // 封装结果
             MarkedStudentPaper markedPaper = new MarkedStudentPaper(
