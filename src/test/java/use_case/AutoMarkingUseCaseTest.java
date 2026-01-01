@@ -1,5 +1,8 @@
 package use_case;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,6 +20,9 @@ import interface_adapter.auto_marking.AutoMarkingPresenter;
 import use_case.auto_marking.AutoMarkingDataAccessInterface;
 import use_case.auto_marking.AutoMarkingUseCase;
 import use_case.dto.AutoMarkingInputData;
+import use_case.util.LayoutConvertUtil;
+
+import javax.imageio.ImageIO;
 
 public class AutoMarkingUseCaseTest {
 
@@ -79,6 +85,19 @@ public class AutoMarkingUseCaseTest {
             catch (Exception e) {
 
             }
+
+            File imageFile = new File("src/main/resources/test_student_removed.jpg");
+            String base64 = "";
+            // 3. 读取图片
+            try {
+                BufferedImage image = ImageIO.read(imageFile);
+                base64 = LayoutConvertUtil.imageToBase64(image);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            HashMap<String, String> paperBase64 = new HashMap<>();
+            paperBase64.put("0", base64);
 
             return new StudentPaper(
                     "1",
@@ -446,7 +465,8 @@ public class AutoMarkingUseCaseTest {
                                 "category": "Page-footer",
                                 "text": "第1页共1页"
                               }
-                            ]"""
+                            ]""",
+                    paperBase64
             );
         }
 
@@ -492,7 +512,7 @@ public class AutoMarkingUseCaseTest {
         @Override
         public void storeMarkedPapers(List<MarkedStudentPaper> studentPapers) {
             System.out.println(studentPapers.get(0).toJsonString());
-            System.out.println(studentPapers.get(0).getMarkedContent());
+//            System.out.println(studentPapers.get(0).getMarkedContent());
             System.out.println("storing success");
         }
 

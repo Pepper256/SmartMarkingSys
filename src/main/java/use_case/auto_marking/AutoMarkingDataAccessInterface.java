@@ -13,4 +13,6 @@ public interface AutoMarkingDataAccessInterface {
     void storeMarkedPapers(List<MarkedStudentPaper> studentPapers);
 
     AnswerPaper getAnswerPaperByExamPaperId(String examPaperId);
+    
+    
 }

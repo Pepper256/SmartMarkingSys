@@ -33,7 +33,7 @@ public class ReportDaoSqliteTest {
         HashMap<String, String> rsp = new HashMap<String, String>();
         rsp.put("1", "2");
 
-        StudentPaper sp = new StudentPaper(studentPaperId, examPaperId, "Math", qs, rsp, "coord");
+        StudentPaper sp = new StudentPaper(studentPaperId, examPaperId, "Math", qs, rsp, "coord", new HashMap<>());// TODO
         List<StudentPaper> sps = new ArrayList<StudentPaper>();
         sps.add(sp);
         studentDao.saveStudentPapers(sps);
@@ -51,6 +51,7 @@ public class ReportDaoSqliteTest {
                 qs,
                 rsp,
                 "coord",
+                new HashMap<>(),// TODO
                 correctness,
                 "nice work",
                 reasons

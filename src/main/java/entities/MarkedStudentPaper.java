@@ -20,10 +20,11 @@ public class MarkedStudentPaper extends StudentPaper{
                                 HashMap<String, String> questions,
                                 HashMap<String, String> responses,
                                 String coordContent,
+                                HashMap<String, String> paperBase64,
                                 HashMap<String, Boolean> correctness,
                                 String markedContent,
                               HashMap<String, String> reasons) {
-        super(id, examPaperId, subject, questions, responses, coordContent);
+        super(id, examPaperId, subject, questions, responses, coordContent, paperBase64);
         this.correctness = correctness;
         this.markedContent = markedContent;
         this.reasons = reasons;
@@ -38,7 +39,8 @@ public class MarkedStudentPaper extends StudentPaper{
                 studentPaper.getSubject(),
                 studentPaper.getQuestions(),
                 studentPaper.getResponses(),
-                studentPaper.getCoordContent());
+                studentPaper.getCoordContent(),
+                studentPaper.getPaperBase64());
         this.correctness = correctness;
         this.markedContent = markedContent;
         this.reasons = reasons;

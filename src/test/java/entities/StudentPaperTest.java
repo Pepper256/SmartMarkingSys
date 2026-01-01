@@ -27,7 +27,8 @@ public class StudentPaperTest {
                 "1",
                 questions,
                 responses,
-                "1"
+                "1",
+                new HashMap<>()
         );
         studentPaperJson = "{" +
                 "\"id\":\"1\"," +
@@ -35,7 +36,8 @@ public class StudentPaperTest {
                 "\"examPaperId\":\"1\"," +
                 "\"questions\":{\"1\":\"1\"}," +
                 "\"responses\":{\"1\":\"1\"}," +
-                "\"coordContent\":\"1\"" +
+                "\"coordContent\":\"1\"," +
+                "\"paperBase64\":{}"+
                 "}";
     }
 

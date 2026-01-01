@@ -36,7 +36,8 @@ public class StudentPaperDaoSqliteTest {
                 "Math",
                 qs,
                 rsp,
-                "coord-content"
+                "coord-content",
+                new HashMap<>() // TODO
         );
 
         List<StudentPaper> list = new ArrayList<StudentPaper>();

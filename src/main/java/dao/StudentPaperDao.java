@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
 
 import entities.AnswerPaper;
@@ -97,7 +98,8 @@ public class StudentPaperDao implements UploadStudentAnswerDataAccessInterface, 
                         rs.getString("subject"),
                         MapJsonUtil.toStringMap(rs.getString("questions_json")),
                         MapJsonUtil.toStringMap(rs.getString("responses_json")),
-                        rs.getString("coord_content")
+                        rs.getString("coord_content"),
+                        new HashMap<>() // TODO
                 );
             }
         } catch (SQLException e) {

@@ -19,7 +19,6 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import use_case.Constants;
 import use_case.dto.UploadStudentAnswerInputData;
 import use_case.dto.UploadStudentAnswerOutputData;
-import use_case.util.ApiUtil;
 import use_case.util.FileUtil;
 import use_case.util.LayoutConvertUtil;
 import use_case.util.ThreadUtil;
@@ -158,6 +157,8 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 // 步骤 3: 顺序执行坐标还原并生成 Markdown
         StringBuilder fullMarkdown = new StringBuilder();
 
+        HashMap<String, String> paperBase64 = new HashMap<>();
+
         for (int i = 0; i < ocrFutures.size(); i++) {
             PageResult res = ocrFutures.get(i).get();
 
@@ -177,6 +178,8 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
 
             // 3.3 及时释放图片内存
             res.originImage.flush();
+
+            paperBase64.put(Integer.toString(i), LayoutConvertUtil.imageToBase64(res.originImage));
         }
 
         String finalResult = fullMarkdown.toString();
@@ -188,7 +191,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
                 "\n\n[Student_Card_OCR]\n\n" +
                 finalResult;
 
-        JSONObject llmResponse = callQwenVlApi(combinedPrompt);
+        JSONObject llmResponse = callDeepseekApi(combinedPrompt);
 
         // 步骤 5: 组装最终结果
         JSONObject result = new JSONObject(new LinkedHashMap<>());
@@ -198,6 +201,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
         result.put("responses", llmResponse.getJSONObject("responses"));
         result.put("questions", examPaper.getQuestions());
         result.put("coordContent", fullOcrContent.toString()); // 保留 OCR 汇总日志供溯源
+        result.put("paperBase64", paperBase64);
 
         return result;
     }
@@ -205,7 +209,7 @@ public class UploadStudentAnswerUseCase implements UploadStudentAnswerInputBound
     /**
      * 调用 Qwen API
      */
-    private JSONObject callQwenVlApi(String combinedPrompt) throws Exception {
+    private JSONObject callDeepseekApi(String combinedPrompt) throws Exception {
         // 设置较长的超时时间，因为多页汇总处理耗时较久
         RequestConfig config = RequestConfig.custom()
                 .setConnectTimeout(5000)
